@@ -1,10 +1,10 @@
 package BlackAdhuleSystem.dev.userAdvicesMariadb.services.implementations;
 
 import BlackAdhuleSystem.dev.userAdvicesMariadb.dto.UserDto;
-import BlackAdhuleSystem.dev.userAdvicesMariadb.dto.ValidationDto;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.entity.Role;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.entity.RoleType;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.entity.User;
+import BlackAdhuleSystem.dev.userAdvicesMariadb.entity.Validation;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.mapper.UserMapper;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.repository.RoleRepository;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.repository.UserRepository;
@@ -16,7 +16,9 @@ import org.springframework.stereotype.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @AllArgsConstructor
@@ -69,6 +71,27 @@ public class UserServiceImp implements UserService {
 
         return savedUserDto;
     }
+
+    @Override
+    public UserDto activation(Map<String, String> activation) {
+        Validation validation = validationService.readByCode(activation.get("code"));
+        if (validation == null) {
+            throw new RuntimeException("Code invalide");
+        }
+        if (Instant.now().isAfter(validation.getExpireTime())) {
+            throw new RuntimeException("Votre code a expiré");
+        }
+
+        User user = userRepository.findById(validation.getUser().getId())
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+        user.setActif(true);
+        userRepository.save(user);
+
+        logger.info("Utilisateur {} activé avec succès", user.getEmail());
+        return UserMapper.mapToUserDto(user);
+    }
+
+
 
     @Override
     public List<UserDto> getUsers() {

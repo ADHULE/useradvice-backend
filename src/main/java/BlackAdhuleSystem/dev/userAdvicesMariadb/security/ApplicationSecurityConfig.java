@@ -20,7 +20,9 @@ public class ApplicationSecurityConfig {
         return httpSecurity
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(authorizationManagerRequestMatcherRegistry ->
-                        authorizationManagerRequestMatcherRegistry.requestMatchers(POST, "/inscription").permitAll()
+                        authorizationManagerRequestMatcherRegistry
+                                .requestMatchers(POST, "/inscription").permitAll()
+                                .requestMatchers(POST, "/activation").permitAll()
                                 .anyRequest().authenticated()
                 ).build();
     }

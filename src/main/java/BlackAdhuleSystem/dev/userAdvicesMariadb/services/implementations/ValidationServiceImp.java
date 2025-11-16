@@ -88,4 +88,19 @@ public class ValidationServiceImp implements ValidationService {
         int number = secureRandom.nextInt(900_000) + 100_000;
         return String.format("%06d", number);
     }
+
+    /**
+     * Recherche une validation par son code.
+     *
+     * @param code le code de validation fourni par l'utilisateur
+     * @return l'entité Validation correspondante si trouvée
+     * @throws ValidationAlreadyExistsException si aucun code n'est trouvé
+     */
+    @Override
+    public Validation readByCode(String code) {
+        return validationRepository.findByCode(code)
+                .orElseThrow(() -> new ValidationAlreadyExistsException("Code de validation introuvable"));
+    }
+
+
 }

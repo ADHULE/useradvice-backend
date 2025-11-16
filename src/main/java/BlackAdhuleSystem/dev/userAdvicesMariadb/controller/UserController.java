@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Map;
+
 @Slf4j
 @RestController
 @RequestMapping()
@@ -26,4 +28,15 @@ public class UserController {
         return new ResponseEntity<>(savedUser, HttpStatus.CREATED);
 
     }
+    @PostMapping(path = "activation")
+    public ResponseEntity<UserDto> activation(@RequestBody Map<String, String> activation) {
+        try {
+            UserDto activatedUser = userService.activation(activation);
+            return ResponseEntity.ok(activatedUser);
+        } catch (RuntimeException e) {
+            // Gestion des erreurs métier (code invalide ou expiré)
+            return ResponseEntity.badRequest().body(null);
+        }
+    }
+
 }
