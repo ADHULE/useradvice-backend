@@ -1,6 +1,7 @@
 package BlackAdhuleSystem.dev.userAdvicesMariadb.services.interfaces;
 
 import BlackAdhuleSystem.dev.userAdvicesMariadb.dto.UserDto;
+import BlackAdhuleSystem.dev.userAdvicesMariadb.entity.User;
 
 import java.util.List;
 import java.util.Map;
@@ -15,4 +16,5 @@ public interface UserService {
      UserDto updateUser(Long userId, UserDto userDto);
      void deleteUser(Long userId);
 
+    User findEntityByEmail(String username);
 }

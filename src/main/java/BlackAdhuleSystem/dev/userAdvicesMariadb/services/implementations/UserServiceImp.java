@@ -11,6 +11,8 @@ import BlackAdhuleSystem.dev.userAdvicesMariadb.repository.UserRepository;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.services.interfaces.UserService;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.services.interfaces.ValidationService;
 import lombok.AllArgsConstructor;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.slf4j.Logger;
@@ -22,7 +24,7 @@ import java.util.Map;
 
 @Service
 @AllArgsConstructor
-public class UserServiceImp implements UserService {
+public class UserServiceImp implements UserService , UserDetailsService {
 
     private static final Logger logger = LoggerFactory.getLogger(UserServiceImp.class);
 
@@ -124,4 +126,27 @@ public class UserServiceImp implements UserService {
     public void deleteUser(Long id) {
         userRepository.deleteById(id);
     }
+
+    /**
+     * @param username
+     * @return
+     */
+    @Override
+    public User findEntityByEmail(String username) {
+        return null;
+    }
+
+    /**
+     * @param username l'email de l'utilisateur
+     * @return un objet UserDetails contenant les informations nécessaires à l'authentification
+     * @throws UsernameNotFoundException si l'utilisateur n'existe pas
+     */
+    @Override
+    public User loadUserByUsername(String username) throws UsernameNotFoundException {
+       return userRepository.findByEmail(username)
+                .orElseThrow(() -> new UsernameNotFoundException("Utilisateur non trouvé : " + username));
+
+
+    }
+
 }
