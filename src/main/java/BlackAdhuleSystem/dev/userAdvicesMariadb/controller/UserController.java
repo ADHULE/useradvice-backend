@@ -50,12 +50,12 @@ public class UserController {
     @PostMapping(path = "login")
     public Map<String, String> connexion(@RequestBody AuthentificationDto authentificationDto) {
         final Authentication authenticate = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(
-                authentificationDto.username(),
+                authentificationDto.email(),
                 authentificationDto.password())
         );
 //        si l'utilisateur est authentifié alors récuperer son nom dans la base de données
         if (authenticate.isAuthenticated()) {
-          return this.jwtService.generateToken(authentificationDto.username());
+          return this.jwtService.generateToken(authentificationDto.email());
         }
         return null;
     }

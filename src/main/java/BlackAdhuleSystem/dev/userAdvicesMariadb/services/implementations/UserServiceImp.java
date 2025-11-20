@@ -137,14 +137,14 @@ public class UserServiceImp implements UserService , UserDetailsService {
     }
 
     /**
-     * @param username l'email de l'utilisateur
+     * @param email l'email de l'utilisateur
      * @return un objet UserDetails contenant les informations nécessaires à l'authentification
      * @throws UsernameNotFoundException si l'utilisateur n'existe pas
      */
     @Override
-    public User loadUserByUsername(String username) throws UsernameNotFoundException {
-       return userRepository.findByEmail(username)
-                .orElseThrow(() -> new UsernameNotFoundException("Utilisateur non trouvé : " + username));
+    public User loadUserByUsername(String email) throws UsernameNotFoundException {
+       return userRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("Utilisateur non trouvé : " + email));
 
 
     }

@@ -13,4 +13,5 @@ public class AdviceDto {
     private Long id;
     private String message;
     private String status;
+    private UserDto userDto;
 }

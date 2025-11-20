@@ -2,23 +2,24 @@ package BlackAdhuleSystem.dev.userAdvicesMariadb.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
-import lombok.Getter;
+import lombok.Builder;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-@Getter
+@Builder
 @Setter
-@AllArgsConstructor
 @NoArgsConstructor
+@AllArgsConstructor
 @Entity
-@Table(name = "advices")
-public class Advice {
+@Table(name = "jwts")
+public class Jwt {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    private String message;
-    private String status;
-
-    @ManyToOne
+    @Lob
+    private String value;
+    private boolean desactive;
+    private boolean expire;
+    @ManyToOne(cascade = {CascadeType.DETACH, CascadeType.MERGE})
     private User user;
 }
