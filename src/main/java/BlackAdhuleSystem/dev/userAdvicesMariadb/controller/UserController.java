@@ -2,21 +2,16 @@ package BlackAdhuleSystem.dev.userAdvicesMariadb.controller;
 
 import BlackAdhuleSystem.dev.userAdvicesMariadb.dto.AuthentificationDto;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.dto.UserDto;
-import BlackAdhuleSystem.dev.userAdvicesMariadb.repository.UserRepository;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.security.JwtService;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.services.interfaces.UserService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
@@ -25,39 +20,53 @@ import java.util.Map;
 @RequestMapping()
 @AllArgsConstructor
 public class UserController {
+
     private final UserService userService;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
 
+    // --------------------- INSCRIPTION ---------------------
     @PostMapping(path = "inscription")
-    public ResponseEntity<UserDto> inscruption(@RequestBody UserDto userDto) {
-        UserDto savedUser = this.userService.createUser(userDto);
+    public ResponseEntity<UserDto> inscription(@RequestBody UserDto userDto) {
+        UserDto savedUser = userService.createUser(userDto);
         return new ResponseEntity<>(savedUser, HttpStatus.CREATED);
-
     }
 
+    // --------------------- ACTIVATION ---------------------
     @PostMapping(path = "activation")
     public ResponseEntity<UserDto> activation(@RequestBody Map<String, String> activation) {
         try {
             UserDto activatedUser = userService.activation(activation);
             return ResponseEntity.ok(activatedUser);
         } catch (RuntimeException e) {
-            // Gestion des erreurs métier (code invalide ou expiré)
+            log.warn("Erreur d'activation: {}", e.getMessage());
             return ResponseEntity.badRequest().body(null);
         }
     }
 
+    // --------------------- LOGIN ---------------------
     @PostMapping(path = "login")
-    public Map<String, String> connexion(@RequestBody AuthentificationDto authentificationDto) {
-        final Authentication authenticate = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(
-                authentificationDto.email(),
-                authentificationDto.password())
+    public ResponseEntity<Map<String, String>> connexion(@RequestBody AuthentificationDto authentificationDto) {
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                        authentificationDto.email(),
+                        authentificationDto.password()
+                )
         );
-//        si l'utilisateur est authentifié alors récuperer son nom dans la base de données
-        if (authenticate.isAuthenticated()) {
-          return this.jwtService.generateToken(authentificationDto.email());
+
+        if (authentication.isAuthenticated()) {
+            Map<String, String> tokenPayload = jwtService.generateToken(authentificationDto.email());
+            return ResponseEntity.ok(tokenPayload);
+        } else {
+            log.warn("Échec d'authentification pour {}", authentificationDto.email());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        return null;
     }
 
+    // --------------------- LOGOUT ---------------------
+    @PostMapping(path="logout")
+    public ResponseEntity<Void> logout(@RequestHeader("Authorization") String authHeader) {
+        jwtService.deconnexion(authHeader);
+        return ResponseEntity.noContent().build();
+    }
 }

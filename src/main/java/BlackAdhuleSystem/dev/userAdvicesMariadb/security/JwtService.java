@@ -4,29 +4,30 @@ import BlackAdhuleSystem.dev.userAdvicesMariadb.entity.Jwt;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.entity.User;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.repository.JwtRepository;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.services.implementations.UserServiceImp;
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.ExpiredJwtException;
-import io.jsonwebtoken.JwtException;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.dao.DataIntegrityViolationException; // Import pour l'erreur de BD
 import org.springframework.stereotype.Service;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.security.Key;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class JwtService {
 
-    public static final String BEARER = "bearer";
+    public static final String TOKEN_KEY = "token";
+
     private final UserServiceImp userServiceImp;
     private final JwtRepository jwtRepository;
 
@@ -35,130 +36,154 @@ public class JwtService {
 
     private static final Logger logger = Logger.getLogger(JwtService.class.getName());
 
-    // ------------------------------
-    //     GÉNÉRATION DU TOKEN
-    // ------------------------------
-    public Map<String, String> generateToken(String username) {
-        // Supposons que loadUserByUsername retourne bien l'entité User, qui implémente UserDetails
-        User user = this.userServiceImp.loadUserByUsername(username);
-        logger.info("generateToken called for " + username);
+    // ============================================================
+    //      GENERATION DU TOKEN
+    // ============================================================
+    public Map<String, String> generateToken(String email) {
 
-        Map<String, String> jwtTokenMap = buildJwtToken(user);
+        User user = userServiceImp.loadUserByUsername(email);
 
-        // Construction de l'entité Jwt
-        final Jwt jwt = Jwt.builder()
-                .value(jwtTokenMap.get(BEARER))
+        long now = System.currentTimeMillis();
+        long expirationTime = now + (60 * 60 * 1000); // 1 heure
+
+        String jwtToken = Jwts.builder()
+                .setSubject(user.getEmail())
+                .setIssuedAt(new Date(now))
+                .setExpiration(new Date(expirationTime))
+                .signWith(getSigningKey(), SignatureAlgorithm.HS512)
+                .compact();
+
+        Jwt jwt = Jwt.builder()
+                .value(jwtToken)
                 .desactive(false)
                 .expire(false)
                 .user(user)
                 .build();
 
-        // Tentative de sauvegarde du token dans la base de données
-        try {
-            this.jwtRepository.save(jwt);
-        } catch (DataIntegrityViolationException e) {
-            // Cette exception est souvent levée lorsque la taille de la colonne est insuffisante (e.g., VARCHAR(255))
-            logger.log(Level.SEVERE,
-                    "Erreur de sauvegarde du JWT : La colonne 'value' dans la table 'jwts' est probablement trop petite. " +
-                            "Veuillez modifier le schéma de la base de données pour utiliser le type TEXT ou VARCHAR(2048). Cause: " + e.getMessage(), e);
+        jwtRepository.save(jwt);
+        logger.info("Token généré pour : " + email);
 
-            // On peut choisir de relancer l'exception ou de continuer.
-            // Pour l'authentification, il est préférable de relancer pour bloquer la connexion si le token n'est pas sauvegardé.
-            throw new RuntimeException("Échec de la sauvegarde du token. Veuillez vérifier la configuration de la base de données.", e);
-        }
-
-        return jwtTokenMap;
+        return Map.of(
+                TOKEN_KEY, jwtToken,
+                "expiresAt", new Date(expirationTime).toString()
+        );
     }
 
-    private Map<String, String> buildJwtToken(User user) {
-        // Durée de validité de 30 minutes
-        final long TOKEN_VALIDITY_MS = 30 * 60 * 1000;
-        long currentTimeMillis = System.currentTimeMillis();
-        long expirationTime = currentTimeMillis + TOKEN_VALIDITY_MS;
-
-        // Les claims peuvent être ajoutées via l'objet Claims si nécessaire, mais Map.of est suffisant ici
-        Map<String, Object> claims = Map.of("name", user.getName(), "email", user.getEmail());
-
-        String jwtToken = Jwts.builder()
-                .setClaims(claims)
-                .setSubject(user.getEmail()) // subject = email
-                .setIssuedAt(new Date(currentTimeMillis))
-                .setExpiration(new Date(expirationTime))
-                .signWith(getSigningKey(), SignatureAlgorithm.HS512)
-                .compact();
-
-        // Retourne le token Bearer et l'heure d'expiration pour le client
-        return Map.of(BEARER, jwtToken, "expiresAt", new Date(expirationTime).toString());
-    }
-
+    // ============================================================
+    //      CLE DE SIGNATURE
+    // ============================================================
     private Key getSigningKey() {
         try {
-            byte[] decodedKey = Decoders.BASE64.decode(encryptionKey);
-            return Keys.hmacShaKeyFor(decodedKey);
-        } catch (IllegalArgumentException e) {
-            logger.log(Level.SEVERE, "Clé d'encryption invalide : vérifie que app.secret-key est une chaîne Base64 valide", e);
-            throw e;
+            byte[] decoded = Decoders.BASE64.decode(encryptionKey);
+            return Keys.hmacShaKeyFor(decoded);
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "Clé secrète invalide (Base64) : " + e.getMessage(), e);
+            throw new RuntimeException("La clé secrète est invalide !");
         }
     }
 
-    // ------------------------------
-    //     VALIDATION ET EXTRACTION
-    // ------------------------------
-
-    // Extraire l'email (subject) depuis le token
-    // IMPORTANT : On suppose ici que le token n'a PAS le préfixe "Bearer " (ce qui est géré dans JwtFilter)
-    public String extractEmail(String token) {
+    // ============================================================
+    //      SUPPRESSION DU PREFIXE BEARER
+    // ============================================================
+    private String stripBearer(String token) {
         if (token == null) return null;
+        return token.startsWith("Bearer ") ? token.substring(7) : token;
+    }
+
+    // ============================================================
+    //      EXTRACTION DES CLAIMS
+    // ============================================================
+    public Claims getClaims(String token) throws JwtException {
+        token = stripBearer(token);
+
+        return Jwts.parserBuilder()
+                .setSigningKey(getSigningKey())
+                .setAllowedClockSkewSeconds(300)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+    }
+
+    // ============================================================
+    //      EXTRAIRE EMAIL
+    // ============================================================
+    public String extractEmail(String token) {
         try {
-            Claims claims = getClaims(token);
-            return claims != null ? claims.getSubject() : null;
+            return getClaims(token).getSubject();
+        } catch (ExpiredJwtException e) {
+            logger.warning("Token expiré : " + e.getMessage());
+            return null;
         } catch (JwtException e) {
-            // En cas d'exception (expiré, invalide, etc.), on retourne null
+            logger.warning("Token invalide : " + e.getMessage());
             return null;
         }
     }
 
-    /**
-     * Valide la signature et la date d'expiration.
-     * Si le token est invalide ou expiré, une exception est lancée et capturée.
-     */
+    // ============================================================
+    //      VALIDATION TOKEN
+    // ============================================================
     public boolean isTokenValid(String token) {
-        if (token == null) return false;
+        String stripped = stripBearer(token);
+        if (stripped == null) return false;
 
         try {
-            // Tente de récupérer les claims. Si ça réussit, le token est valide.
-            getClaims(token);
-            return true;
-        } catch (ExpiredJwtException e) {
-            logger.warning("Token expiré : " + e.getMessage());
+            getClaims(stripped);
+
+            return jwtRepository
+                    .findByValueAndDesactiveAndExpire(stripped, false, false)
+                    .isPresent();
+
         } catch (JwtException e) {
-            logger.warning("Token invalide : " + e.getMessage());
-        } catch (Exception e) {
-            logger.log(Level.WARNING, "Erreur lors de la validation du token", e);
+            logger.warning("Token non valide : " + e.getMessage());
+            return false;
         }
+    }
+
+    // ============================================================
+//      LOGOUT UTILISATEUR (UNIFIÉ)
+// ============================================================
+    public boolean deconnexion(String token) {
+        String email = null;
+
+        // 1. Si un token est fourni, on l’utilise pour retrouver l’utilisateur
+        if (token != null) {
+            String stripped = stripBearer(token);
+            Optional<Jwt> jwtOpt = jwtRepository.findByValueAndDesactiveAndExpire(stripped, false, false);
+
+            if (jwtOpt.isPresent()) {
+                email = jwtOpt.get().getUser().getEmail();
+            } else {
+                logger.warning("Token fourni invalide ou déjà désactivé.");
+                SecurityContextHolder.clearContext();
+                return false;
+            }
+        }
+        // 2. Sinon, on récupère l’utilisateur depuis le SecurityContext
+        else {
+            var auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || !auth.isAuthenticated()) {
+                logger.warning("Aucun utilisateur authentifié.");
+                return false;
+            }
+            email = auth.getName();
+        }
+
+        // 3. Désactiver TOUS les tokens actifs de cet utilisateur
+        List<Jwt> activeTokens = jwtRepository.findAllByUserEmailAndDesactiveFalseAndExpireFalse(email);
+        if (!activeTokens.isEmpty()) {
+            for (Jwt t : activeTokens) {
+                t.setDesactive(true);
+                t.setExpire(true);
+                jwtRepository.save(t);
+            }
+            SecurityContextHolder.clearContext();
+            logger.info("Déconnexion réussie, tous les tokens désactivés pour : " + email);
+            return true;
+        }
+
+        logger.warning("Aucun token actif trouvé pour l'utilisateur : " + email);
+        SecurityContextHolder.clearContext();
         return false;
     }
 
-    /**
-     * Récupère les claims du token.
-     * IMPORTANT : Laisse les exceptions (comme ExpiredJwtException ou SignatureException) être propagées.
-     */
-    public Claims getClaims(String token) throws JwtException {
-        if (token == null) {
-            throw new JwtException("Token is null.");
-        }
-
-        // Le préfixe "Bearer " ne doit PAS être ici
-        try {
-            return Jwts.parserBuilder()
-                    .setSigningKey(getSigningKey())
-                    .build()
-                    .parseClaimsJws(token)
-                    .getBody();
-        } catch (JwtException e) {
-            // Remonter l'exception pour que le filtre ou l'appelant puisse la gérer (par exemple, renvoyer 401)
-            logger.log(Level.INFO, "JWT parsing failed: " + e.getMessage());
-            throw e;
-        }
-    }
 }

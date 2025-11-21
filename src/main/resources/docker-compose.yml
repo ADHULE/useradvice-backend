@@ -26,7 +26,7 @@ services: # Définition des services à déployer
     restart: always
     ports:
       - "9080:8080"                         # Accessible via http://localhost:9080
-    depends_on:
+    depends_on: 
       - db                                  # ⏳ Attend que le service "db" soit prêt
     networks:
       - backend

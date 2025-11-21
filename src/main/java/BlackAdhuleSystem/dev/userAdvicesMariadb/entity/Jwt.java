@@ -1,12 +1,10 @@
 package BlackAdhuleSystem.dev.userAdvicesMariadb.entity;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
 @Builder
+@Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
@@ -23,3 +21,4 @@ public class Jwt {
     @ManyToOne(cascade = {CascadeType.DETACH, CascadeType.MERGE})
     private User user;
 }
+
