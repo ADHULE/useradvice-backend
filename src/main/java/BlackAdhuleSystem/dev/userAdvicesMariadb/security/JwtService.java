@@ -9,11 +9,15 @@ import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.CrossOrigin;
 
 import java.security.Key;
+import java.time.Instant;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -21,6 +25,7 @@ import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -184,6 +189,11 @@ public class JwtService {
         logger.warning("Aucun token actif trouvé pour l'utilisateur : " + email);
         SecurityContextHolder.clearContext();
         return false;
+    }
+    @Scheduled(cron = "0 */1 * * * *") // chaque minute
+    public  void removeUseLessToken(){
+        log.info("Netoyage de token "+ Instant.now());
+        this.jwtRepository.deleteAllByExpireAndDesactive(true,true);
     }
 
 }

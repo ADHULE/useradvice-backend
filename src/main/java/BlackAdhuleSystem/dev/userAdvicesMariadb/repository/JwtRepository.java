@@ -19,7 +19,9 @@ public interface JwtRepository extends JpaRepository<Jwt, Long> {
             @Param("expire") boolean expire
     );
 
-    Optional<Jwt> findByValue(String value);
-
     List<Jwt> findAllByUserEmailAndDesactiveFalseAndExpireFalse(String email);
+
+
+    void deleteAllByExpireAndDesactive(boolean expire, boolean desactive);
+
 }
