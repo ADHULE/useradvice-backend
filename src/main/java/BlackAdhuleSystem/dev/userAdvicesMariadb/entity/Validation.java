@@ -22,6 +22,6 @@ public class Validation {
     private Instant creationTime;
     private Instant activationTime;
     private Instant expireTime;
-    @ManyToOne(cascade = CascadeType.ALL)
+    @ManyToOne(cascade = {CascadeType.MERGE,CascadeType.DETACH})
     private User user;
 }

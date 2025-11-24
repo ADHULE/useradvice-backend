@@ -8,4 +8,6 @@ public interface ValidationService {
     ValidationDto saveValidation(UserDto userDto);
     String generateCode();
     Validation readByCode(String code);
+
+    void deleteValidation(Long id);
 }

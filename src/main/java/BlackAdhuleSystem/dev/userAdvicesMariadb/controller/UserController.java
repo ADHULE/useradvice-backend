@@ -44,6 +44,28 @@ public class UserController {
         }
     }
 
+    /**
+     * Endpoint pour demander un changement de mot de passe.
+     * L'utilisateur fournit son email et reçoit un code de validation par email.
+     */
+    @PostMapping(path = "change-password")
+    public ResponseEntity<String> changePassword(@RequestBody Map<String, String> parameter) {
+        userService.changePassword(parameter);
+        return ResponseEntity.ok("Un code de validation a été envoyé à votre adresse email.");
+    }
+
+
+    /**
+     * Endpoint pour définir un nouveau mot de passe.
+     * L'utilisateur fournit son email, le code reçu et le nouveau mot de passe.
+     */
+    @PostMapping(path = "new-password")
+    public ResponseEntity<String> newPassword(@RequestBody Map<String, String> parameter) {
+        userService.newPassword(parameter);
+        return ResponseEntity.ok("Votre mot de passe a été mis à jour avec succès.");
+    }
+
+
     // --------------------- LOGIN ---------------------
     @PostMapping(path = "login")
     public ResponseEntity<Map<String, String>> connexion(@RequestBody AuthentificationDto authentificationDto) {
@@ -64,7 +86,7 @@ public class UserController {
     }
 
     // --------------------- LOGOUT ---------------------
-    @PostMapping(path="logout")
+    @PostMapping(path = "logout")
     public ResponseEntity<Void> logout(@RequestHeader("Authorization") String authHeader) {
         jwtService.deconnexion(authHeader);
         return ResponseEntity.noContent().build();
