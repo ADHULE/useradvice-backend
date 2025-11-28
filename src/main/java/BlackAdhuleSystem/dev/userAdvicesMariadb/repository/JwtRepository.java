@@ -24,4 +24,5 @@ public interface JwtRepository extends JpaRepository<Jwt, Long> {
 
     void deleteAllByExpireAndDesactive(boolean expire, boolean desactive);
 
+    Optional<Jwt> findByRefreshTokenValue(String refreshValue);
 }

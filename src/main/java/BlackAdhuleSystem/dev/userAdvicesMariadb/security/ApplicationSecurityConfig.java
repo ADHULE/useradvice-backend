@@ -43,6 +43,7 @@ public class ApplicationSecurityConfig {
                         .requestMatchers(POST, "/inscription").permitAll()
                         .requestMatchers(POST, "/activation").permitAll()
                         .requestMatchers(POST, "/login").permitAll()
+                        .requestMatchers(POST,"refresh-token").permitAll()
                         .requestMatchers(POST, "/change-password").permitAll()
                         .requestMatchers(POST, "/forgot-password").permitAll()
                         .requestMatchers(POST, "/new-password").permitAll()

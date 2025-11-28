@@ -2,6 +2,8 @@ package BlackAdhuleSystem.dev.userAdvicesMariadb.services.interfaces;
 
 import BlackAdhuleSystem.dev.userAdvicesMariadb.dto.UserDto;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.dto.ValidationDto;
+import BlackAdhuleSystem.dev.userAdvicesMariadb.entity.User;
+import BlackAdhuleSystem.dev.userAdvicesMariadb.entity.Validation;
 
 import java.util.List;
 import java.util.Map;
@@ -20,6 +22,8 @@ public interface UserService {
     // Modifier mot de passe de l'utilisateur connecté
     void changePassword(Map<String,String> parameter) ;
     void newPassword(Map<String,String> parameter);
+   
+
 
 
 

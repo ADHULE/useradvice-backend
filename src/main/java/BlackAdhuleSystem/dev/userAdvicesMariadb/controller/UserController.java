@@ -2,6 +2,7 @@ package BlackAdhuleSystem.dev.userAdvicesMariadb.controller;
 
 import BlackAdhuleSystem.dev.userAdvicesMariadb.dto.AuthentificationDto;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.dto.UserDto;
+import BlackAdhuleSystem.dev.userAdvicesMariadb.entity.User;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.security.JwtService;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.services.interfaces.UserService;
 import lombok.AllArgsConstructor;
@@ -41,6 +42,21 @@ public class UserController {
         } catch (RuntimeException e) {
             log.warn("Erreur d'activation: {}", e.getMessage());
             return ResponseEntity.badRequest().body(null);
+        }
+    }
+    // --------------------- MISE À JOUR DU TOKEN ---------------------
+    @PostMapping(path = "refresh-token")
+    public ResponseEntity<Map<String, String>> refreshTokenRequest(@RequestBody Map<String, String> refreshtokenRequest) {
+
+        try {
+
+            Map<String, String> newTokens = jwtService.refreshToken(refreshtokenRequest);
+
+            return ResponseEntity.ok(newTokens);
+
+        } catch (RuntimeException e) {
+            log.warn("Erreur lors du refresh token : {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
