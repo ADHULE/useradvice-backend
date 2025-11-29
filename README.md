@@ -1,64 +1,69 @@
-UserAdviceSecurity System — Spring Boot, Roles & Permissions, MariaDB
-Description
-UserAdviceSecurity est une application moderne basée sur Spring Boot intégrant :
-- Gestion des utilisateurs (inscription, authentification, rôles)
-- Permissions via PermissionEnum
-- Rôles dynamiques : ROLE_USER et ROLE_ADMIN
-- Assignation automatique d’un rôle par défaut
-- Initialisation automatique (permissions + rôles + admin)
-- Support Docker / XAMPP / WAMP
-- Outils intégrés : Adminer, PhpMyAdmin, SMTP4DEV
-Architecture du projet
-src/main/java/
-└── BlackAdhuleSystem/dev/userAdvicesMariadb/
-    ├── config/
-    │   ├── SecurityConfig.java
-    │   └── DataInitializer.java
-    ├── controller/
-    ├── dto/
-    ├── entity/
-    ├── mapper/
-    ├── repository/
-    ├── services/
-    └── UserAdvicesMariadbApplication.java
-Rôles & Permissions
-PermissionEnum
-Catégorie
-Permissions
-Utilisateur
-USER_READ, USER_CREATE, USER_UPDATE, USER_DELETE
-Conseils
-ADVICE_READ, ADVICE_CREATE, ADVICE_UPDATE, ADVICE_DELETE
-Système
-SYSTEM_CONFIG, SYSTEM_MONITORING
-Rôle par défaut : ROLE_USER
-- Lire les conseils
-- Créer des conseils
-- Lire son profil
-Rôle administrateur : ROLE_ADMIN
-Accès à toutes les permissions.
-Utilisateur admin par défaut
-Email : admin@gmail.com
-Password : admin123
-Prérequis
-- Java 17+
-- Maven
-- Docker ou XAMPP/WAMP
-Lancer l’application
-Option 1 : Avec Docker Compose
+# 🛡️ UserAdviceSecurity System
+
+**Spring Boot, Rôles & Permissions, MariaDB**
+
+---
+
+## 💡 Description du Projet
+
+**UserAdviceSecurity** est une application moderne et robuste développée avec **Spring Boot**, conçue pour une gestion complète des utilisateurs et de la sécurité.
+
+Elle intègre les fonctionnalités clés suivantes :
+
+* **Gestion des Utilisateurs** : Inscription, authentification, et assignation de rôles.
+* **Sécurité Granulaire** : Gestion des permissions via l'énumération **`PermissionEnum`**.
+* **Rôles Dynamiques** : Support des rôles **`ROLE_USER`** et **`ROLE_ADMIN`**.
+* **Initialisation Automatique** : Configuration et insertion par défaut des permissions, des rôles, et du compte administrateur.
+* **Déploiement Simplifié** : Support **Docker** ou environnements locaux (XAMPP / WAMP).
+* **Outils Intégrés** : Configuration avec **Adminer**, **PhpMyAdmin**, et **SMTP4DEV** pour le développement.
+
+---
+
+## 🔑 Rôles & Permissions
+
+La sécurité est gérée par des rôles et un ensemble de permissions bien définies.
+
+### `PermissionEnum`
+
+| Catégorie | Permissions | Description |
+| :--- | :--- | :--- |
+| **Utilisateur** | `USER_READ`, `USER_CREATE`, `USER_UPDATE`, `USER_DELETE` | Gérer les informations des utilisateurs. |
+| **Conseils** | `ADVICE_READ`, `ADVICE_CREATE`, `ADVICE_UPDATE`, `ADVICE_DELETE` | Gérer les conseils (ressource principale de l'application). |
+| **Système** | `SYSTEM_CONFIG`, `SYSTEM_MONITORING` | Accès aux configurations et au monitoring système. |
+
+### Définition des Rôles
+
+* **Rôle par défaut : `ROLE_USER`**
+    * **Accès Standard** : Lire les conseils, créer des conseils, lire son propre profil.
+* **Rôle Administrateur : `ROLE_ADMIN`**
+    * **Accès Complet** : Accès à **toutes les permissions** du système.
+
+### 👤 Utilisateur Admin par Défaut
+
+Le système est initialisé avec un compte administrateur pour les tests :
+
+| Champ | Valeur |
+| :--- | :--- |
+| **Email** | `admin@gmail.com` |
+| **Mot de passe** | `admin123` |
+
+---
+
+## 🛠️ Prérequis
+
+Pour lancer le projet, assurez-vous d'avoir les éléments suivants installés :
+
+* **Java 17+**
+* **Maven**
+* **Docker** (recommandé) ou **XAMPP/WAMP**
+
+---
+
+## 🚀 Lancer l'Application
+
+### Option 1 : 🐳 Avec Docker Compose (Recommandé)
+
+Lancez l'application et ses services dépendants (MariaDB, Adminer, etc.) avec une seule commande :
+
+```bash
 docker-compose up -d
-Adminer → http://localhost:9080
-PhpMyAdmin → http://localhost:9090
-SMTP4DEV → http://localhost:5001
-Option 2 : Avec XAMPP/WAMP
-1. Créer la base : useradvicesmariadb
-2. Configurer application.properties
-3. Lancer l’application : mvn spring-boot:run
-Connexion API
-POST /api/login
-{
-  "email": "admin@gmail.com",
-  "password": "admin123"
-}
-Licence
-MIT
