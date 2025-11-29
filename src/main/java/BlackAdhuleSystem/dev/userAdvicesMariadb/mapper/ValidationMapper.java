@@ -19,7 +19,7 @@ public class ValidationMapper {
         dto.setExpireTime(validation.getExpireTime());
 
         // On convertit aussi l'utilisateur en DTO
-        UserDto userDto = UserMapper.mapToUserDto(validation.getUser());
+        UserDto userDto = UserMapper.toDto(validation.getUser());
         dto.setUserDto(userDto);
 
         return dto;
@@ -37,7 +37,7 @@ public class ValidationMapper {
         validation.setExpireTime(dto.getExpireTime());
 
         // Conversion du userDto en entité User
-        User user = UserMapper.mapToUser(dto.getUserDto());
+        User user = UserMapper.toEntity(dto.getUserDto());
         validation.setUser(user);
 
         return validation;

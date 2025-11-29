@@ -54,8 +54,8 @@ public class ApplicationSecurityConfig {
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
-                .formLogin().disable()   // ⬅️ désactive le /login par défaut
-                .logout().disable()      // ⬅️ désactive le /logout par défaut
+                .formLogin().disable()   //  désactive le /login par défaut
+                .logout().disable()      //  désactive le /logout par défaut
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }

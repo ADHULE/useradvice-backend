@@ -19,12 +19,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 
 import java.security.Key;
 import java.time.Instant;
 import java.util.*;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 @Slf4j
 @Service
@@ -40,14 +39,20 @@ public class JwtService {
     @Value("${app.secret-key}")
     private String encryptionKey;
 
-    private static final Logger logger = Logger.getLogger(JwtService.class.getName());
-
     // ============================================================
     // GENERATION DU TOKEN INITIAL
     // ============================================================
     public Map<String, String> generateToken(String email) {
 
-        User user = userServiceImp.loadUserByUsername(email);
+        // loadUserByUsername retourne UserDetails — cast sûr si ta classe User implémente UserDetails
+        UserDetails userDetails = userServiceImp.loadUserByUsername(email);
+        User user;
+        try {
+            user = (User) userDetails;
+        } catch (ClassCastException ex) {
+            log.error("Impossible de caster UserDetails en User pour l'email {}: {}", email, ex.getMessage());
+            throw new RuntimeException("Erreur interne lors de la génération du token");
+        }
 
         long now = System.currentTimeMillis();
         long expirationTime = now + (60 * 1000); // 1 minute
@@ -75,7 +80,7 @@ public class JwtService {
                 .build();
 
         jwtRepository.save(jwt);
-        logger.info("Token généré pour : " + email);
+        log.info("Token généré pour : {}", email);
 
         return Map.of(
                 TOKEN_KEY, jwtToken,
@@ -92,7 +97,7 @@ public class JwtService {
             byte[] decoded = Decoders.BASE64.decode(encryptionKey);
             return Keys.hmacShaKeyFor(decoded);
         } catch (Exception e) {
-            logger.log(Level.SEVERE, "Clé secrète invalide (Base64) : " + e.getMessage(), e);
+            log.error("Clé secrète invalide (Base64) : {}", e.getMessage(), e);
             throw new RuntimeException("La clé secrète est invalide !");
         }
     }
@@ -126,10 +131,10 @@ public class JwtService {
         try {
             return getClaims(token).getSubject();
         } catch (ExpiredJwtException e) {
-            logger.warning("Token expiré : " + e.getMessage());
+            log.warn("Token expiré : {}", e.getMessage());
             return null;
         } catch (JwtException e) {
-            logger.warning("Token invalide : " + e.getMessage());
+            log.warn("Token invalide : {}", e.getMessage());
             return null;
         }
     }
@@ -149,7 +154,7 @@ public class JwtService {
                     .isPresent();
 
         } catch (JwtException e) {
-            logger.warning("Token non valide : " + e.getMessage());
+            log.warn("Token non valide : {}", e.getMessage());
             return false;
         }
     }
@@ -167,21 +172,20 @@ public class JwtService {
             if (jwtOpt.isPresent()) {
                 email = jwtOpt.get().getUser().getEmail();
             } else {
-                logger.warning("Token fourni invalide ou déjà désactivé.");
+                log.warn("Token fourni invalide ou déjà désactivé.");
                 SecurityContextHolder.clearContext();
                 return false;
             }
         } else {
             var auth = SecurityContextHolder.getContext().getAuthentication();
             if (auth == null || !auth.isAuthenticated()) {
-                logger.warning("Aucun utilisateur authentifié.");
+                log.warn("Aucun utilisateur authentifié.");
                 return false;
             }
             email = auth.getName();
         }
 
-        List<Jwt> activeTokens =
-                jwtRepository.findAllByUserEmailAndDesactiveFalseAndExpireFalse(email);
+        List<Jwt> activeTokens = jwtRepository.findAllByUserEmailAndDesactiveFalseAndExpireFalse(email);
 
         if (!activeTokens.isEmpty()) {
             for (Jwt t : activeTokens) {
@@ -190,11 +194,11 @@ public class JwtService {
                 jwtRepository.save(t);
             }
             SecurityContextHolder.clearContext();
-            logger.info("Déconnexion réussie, tous les tokens désactivés pour : " + email);
+            log.info("Déconnexion réussie, tous les tokens désactivés pour : {}", email);
             return true;
         }
 
-        logger.warning("Aucun token actif trouvé pour : " + email);
+        log.warn("Aucun token actif trouvé pour : {}", email);
         SecurityContextHolder.clearContext();
         return false;
     }
@@ -204,7 +208,8 @@ public class JwtService {
     // ============================================================
     @Scheduled(cron = "0 */1 * * * *")
     public void removeUseLessToken() {
-        log.info("Nettoyage des tokens inutiles " + Instant.now());
+        log.info("Nettoyage des tokens inutiles {}", Instant.now());
+        // Suppression des tokens expirés/désactivés
         jwtRepository.deleteAllByExpireAndDesactive(true, true);
     }
 
@@ -213,7 +218,7 @@ public class JwtService {
     // ============================================================
     public Map<String, String> refreshToken(Map<String, String> request) {
 
-        String refreshValue = request.get("refresh");
+        String refreshValue = request == null ? null : request.get("refresh");
         if (refreshValue == null) {
             throw new RuntimeException("Refresh token manquant !");
         }
@@ -270,7 +275,7 @@ public class JwtService {
         jwtRepository.save(newRecord);
 
         return Map.of(
-                "token", newJwt,
+                TOKEN_KEY, newJwt,
                 "refresh", newRefreshToken.getValue(),
                 "expiresAt", new Date(expirationTime).toString()
         );

@@ -1,12 +1,7 @@
 package BlackAdhuleSystem.dev.userAdvicesMariadb.services.implementations;
 
 import BlackAdhuleSystem.dev.userAdvicesMariadb.dto.UserDto;
-import BlackAdhuleSystem.dev.userAdvicesMariadb.dto.ValidationDto;
-import BlackAdhuleSystem.dev.userAdvicesMariadb.entity.Role;
-import BlackAdhuleSystem.dev.userAdvicesMariadb.entity.RoleType;
-import BlackAdhuleSystem.dev.userAdvicesMariadb.entity.User;
-import BlackAdhuleSystem.dev.userAdvicesMariadb.entity.Validation;
-
+import BlackAdhuleSystem.dev.userAdvicesMariadb.entity.*;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.exceptions.CodeNotFoundException;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.mapper.UserMapper;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.repository.RoleRepository;
@@ -16,17 +11,15 @@ import BlackAdhuleSystem.dev.userAdvicesMariadb.services.interfaces.ValidationSe
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 
 import java.time.Instant;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -54,24 +47,25 @@ public class UserServiceImp implements UserService, UserDetailsService {
         String encodedPassword = passwordEncoder.encode(userDto.getPassword());
         userDto.setPassword(encodedPassword);
 
-        // 3. Assigner le rôle USER par défaut
-        Role role = roleRepository.findByRoleType(RoleType.USER)
+        // 3. Assigner le rôle USER par défaut (recherche par nom de rôle "ROLE_USER")
+        Role role = roleRepository.findByName("ROLE_USER")
                 .orElseGet(() -> {
                     Role newRole = new Role();
-                    newRole.setRoleType(RoleType.USER);
+                    newRole.setName("ROLE_USER");
+                    newRole.setPrivileges(new HashSet<>()); // aucun privilege par défaut ici
                     return roleRepository.save(newRole);
                 });
 
         // 4. Créer et sauvegarder l'utilisateur
-        User user = UserMapper.mapToUser(userDto);
-        user.setRole(role);
+        User user = UserMapper.toEntity(userDto);
+        user.setRoles(Set.of(role));
         user.setActif(false); // l'utilisateur n’est pas encore activé
         User savedUser = userRepository.save(user);
 
         logger.info("Nouvel utilisateur créé : {}", savedUser.getEmail());
 
         // 5. Convertir en DTO pour la validation
-        UserDto savedUserDto = UserMapper.mapToUserDto(savedUser);
+        UserDto savedUserDto = UserMapper.toDto(savedUser);
 
         try {
             // 6. Créer et envoyer le code d’activation
@@ -115,19 +109,18 @@ public class UserServiceImp implements UserService, UserDetailsService {
         // Optionnel: marquer la validation comme activée (activation time)
         try {
             validation.setActivationTime(Instant.now());
-            // si validationService propose une méthode de save directe pour entity, l'utiliser sinon laisser comme est
-            // ici on suppose qu'il y a un save derrière la repository si nécessaire
+            // Si validationService propose un save, appelez-le ici. Sinon ignorer.
         } catch (Exception ignored) {
         }
 
-        return UserMapper.mapToUserDto(user);
+        return UserMapper.toDto(user);
     }
 
     @Override
     public List<UserDto> getUsers() {
         return userRepository.findAll()
                 .stream()
-                .map(UserMapper::mapToUserDto)
+                .map(UserMapper::toDto)
                 .collect(Collectors.toList());
     }
 
@@ -135,7 +128,7 @@ public class UserServiceImp implements UserService, UserDetailsService {
     public UserDto getUserById(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
-        return UserMapper.mapToUserDto(user);
+        return UserMapper.toDto(user);
     }
 
     @Override
@@ -143,11 +136,12 @@ public class UserServiceImp implements UserService, UserDetailsService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
-        user.setName(dto.getName());
+        user.setFistname(dto.getFirstname());
+        user.setLastname(dto.getLastname());
         user.setEmail(dto.getEmail());
         user.setActif(dto.isActif());
 
-        return UserMapper.mapToUserDto(userRepository.save(user));
+        return UserMapper.toDto(userRepository.save(user));
     }
 
     @Override
@@ -160,11 +154,12 @@ public class UserServiceImp implements UserService, UserDetailsService {
      */
     @Override
     public void changePassword(Map<String, String> parameter) {
-        String email = parameter.get("email");
+        String email = parameter == null ? null : parameter.get("email");
         if (email == null) throw new RuntimeException("Email requis");
 
-        User user = this.loadUserByUsername(email);
-        UserDto userDto = UserMapper.mapToUserDto(user);
+        UserDetails userDetails = this.loadUserByUsername(email);
+        User user = (User) userDetails; // safe cast if your User implements UserDetails
+        UserDto userDto = UserMapper.toDto(user);
 
         // Générer et envoyer le code
         validationService.saveValidation(userDto);
@@ -179,21 +174,22 @@ public class UserServiceImp implements UserService, UserDetailsService {
     @Override
     public void newPassword(Map<String, String> parameter) {
 
-        String email = parameter.get("email");
-        String code = parameter.get("code");
-        String newPassword = parameter.get("password");
+        String email = parameter == null ? null : parameter.get("email");
+        String code = parameter == null ? null : parameter.get("code");
+        String newPassword = parameter == null ? null : parameter.get("password");
 
         if (email == null || code == null || newPassword == null) {
             throw new RuntimeException("Email, code et nouveau mot de passe sont requis");
         }
 
-        User user = this.loadUserByUsername(email);
+        UserDetails userDetails = this.loadUserByUsername(email);
+        User user = (User) userDetails;
 
         // Charger la validation
         Validation validation = validationService.readByCode(code);
 
         // Vérifier que le code correspond bien à cet utilisateur
-        if (!validation.getUser().getEmail().equals(email)) {
+        if (validation.getUser() == null || !validation.getUser().getEmail().equals(email)) {
             throw new RuntimeException("Ce code ne correspond pas à cet utilisateur.");
         }
 
@@ -218,10 +214,8 @@ public class UserServiceImp implements UserService, UserDetailsService {
     // Implémentation pour Spring Security
     // ---------------------------
     @Override
-    public User loadUserByUsername(String email) throws UsernameNotFoundException {
+    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("Utilisateur non trouvé : " + email));
-
-
     }
 }

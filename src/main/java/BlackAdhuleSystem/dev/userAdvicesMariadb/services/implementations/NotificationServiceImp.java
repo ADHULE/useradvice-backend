@@ -28,7 +28,7 @@ public class NotificationServiceImp implements NotificationService {
 
         String text = String.format(
                 "Bonjour %s,\n\nVotre code d'activation est : %s.\nCe code expirera dans 10 minutes.\n\nCordialement,\nBlack Adhule System",
-                validationDto.getUserDto().getName(),
+                validationDto.getUserDto().getFirstname(),
                 validationDto.getCode()
         );
         mailMessage.setText(text);

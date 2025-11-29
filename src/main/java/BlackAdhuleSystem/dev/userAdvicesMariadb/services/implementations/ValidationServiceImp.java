@@ -34,11 +34,6 @@ public class ValidationServiceImp implements ValidationService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
 
-    /**
-     * Crée un nouveau code de validation pour un utilisateur (code à 6 chiffres),
-     * supprime tout ancien code actif pour éviter les conflits,
-     * sauvegarde le nouveau code et envoie une notification à l'utilisateur.
-     */
     @Override
     public ValidationDto saveValidation(UserDto userDto) {
 
@@ -46,33 +41,34 @@ public class ValidationServiceImp implements ValidationService {
             throw new IllegalArgumentException("L'utilisateur ou son identifiant ne peut pas être nul.");
         }
 
-        logger.info("Création du code de validation pour l'utilisateur ID {}", userDto.getId());
+        logger.info("Création d’un code de validation pour l’utilisateur ID {}", userDto.getId());
 
-        // Vérification d'existence utilisateur
+        // Vérifier utilisateur
         User user = userRepository.findById(userDto.getId())
                 .orElseThrow(() ->
                         new IllegalArgumentException("Utilisateur introuvable avec ID : " + userDto.getId())
                 );
 
-        // Vérifier s'il existe déjà un code actif (non expiré)
+        // Vérifier si un code actif existe déjà
         Optional<Validation> existing = validationRepository.findActiveValidationByUserId(user.getId());
+
         if (existing.isPresent()) {
             Validation v = existing.get();
 
-            // Vérifier si expiré → auto-suppression
+            // Code expiré → suppression
             if (Instant.now().isAfter(v.getExpireTime())) {
-                logger.warn("Ancien code expiré détecté → suppression automatique (ID={})", v.getId());
+                logger.warn("Code expiré détecté → suppression automatique (ID={})", v.getId());
                 validationRepository.delete(v);
             } else {
-                logger.warn("Un code de validation actif existe déjà pour l'utilisateur {}", user.getEmail());
+                logger.warn("Un code actif existe déjà pour {}", user.getEmail());
                 throw new ValidationAlreadyExistsException("Un code actif existe déjà. Veuillez attendre son expiration.");
             }
         }
 
-        // Générer un nouveau code
+        // Générer un nouveau code sécurisé
         String code = generateCode();
 
-        // Création validation
+        // Nouvelle validation
         Validation validation = new Validation();
         validation.setUser(user);
         validation.setCode(code);
@@ -80,46 +76,32 @@ public class ValidationServiceImp implements ValidationService {
         validation.setExpireTime(Instant.now().plus(10, MINUTES));
         validation.setActivationTime(null);
 
-        // Sauvegarde
-        Validation savedValidation = validationRepository.save(validation);
+        Validation saved = validationRepository.save(validation);
 
-        logger.info("Nouveau code de validation créé pour {} : {}", user.getEmail(), code);
+        logger.info("Code généré pour {} : {}", user.getEmail(), code);
 
-        // Conversion → DTO
-        ValidationDto validationDto = ValidationMapper.mapToValidationDto(savedValidation);
+        // Notifier l'utilisateur
+        ValidationDto dto = ValidationMapper.mapToValidationDto(saved);
+        notificationService.sendNotification(dto);
 
-        // Notification (email, SMS…)
-        notificationService.sendNotification(validationDto);
-        logger.info("Notification envoyée à {}", user.getEmail());
-
-        return validationDto;
+        return dto;
     }
 
-    /**
-     * Génère un code numérique sécurisé à 6 chiffres.
-     */
     @Override
     public String generateCode() {
-        SecureRandom secureRandom = new SecureRandom();
-        return String.format("%06d", secureRandom.nextInt(1_000_000));
+        return String.format("%06d", new SecureRandom().nextInt(1_000_000));
     }
 
-    /**
-     * Recherche une validation par code.
-     */
     @Override
     public Validation readByCode(String code) {
         return validationRepository.findByCode(code)
                 .orElseThrow(() -> new CodeNotFoundException("Code de validation introuvable ou invalide."));
     }
 
-    /**
-     * Supprime une validation par ID.
-     */
     @Override
     public void deleteValidation(Long id) {
         if (!validationRepository.existsById(id)) {
-            throw new CodeNotFoundException("Validation introuvable avec l'ID : " + id);
+            throw new CodeNotFoundException("Validation introuvable avec l’ID : " + id);
         }
 
         validationRepository.deleteById(id);

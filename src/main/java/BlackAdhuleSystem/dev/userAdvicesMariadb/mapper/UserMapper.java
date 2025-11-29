@@ -1,39 +1,44 @@
 package BlackAdhuleSystem.dev.userAdvicesMariadb.mapper;
 
 import BlackAdhuleSystem.dev.userAdvicesMariadb.dto.UserDto;
-import BlackAdhuleSystem.dev.userAdvicesMariadb.dto.RoleDto;
-import BlackAdhuleSystem.dev.userAdvicesMariadb.entity.User;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.entity.Role;
+import BlackAdhuleSystem.dev.userAdvicesMariadb.entity.User;
 
 public class UserMapper {
 
-    public static UserDto mapToUserDto(User user) {
+    public static UserDto toDto(User user) {
         if (user == null) return null;
 
-        RoleDto roleDto = RoleMapper.mapToRoleDto(user.getRole());
+        UserDto dto = new UserDto();
+        dto.setId(user.getId());
+        dto.setFirstname(user.getFistname());
+        dto.setLastname(user.getLastname());
+        dto.setEmail(user.getEmail());
+        dto.setPassword(null); //  On ne renvoie jamais le mot de passe
+        dto.setActif(user.isActif());
 
-        return new UserDto(
-                user.getId(),
-                user.getName(),
-                user.getEmail(),
-                user.getPassword(),
-                user.isActif(),
-                roleDto
-        );
+        // Un user n'a pas un set de rôle dans votre DTO → on prend le premier
+        user.getRoles().stream().findFirst()
+                .ifPresent(role -> dto.setRoleDto(RoleMapper.toDto(role)));
+
+        return dto;
     }
 
-    public static User mapToUser(UserDto userDto) {
-        if (userDto == null) return null;
+    public static User toEntity(UserDto dto) {
+        if (dto == null) return null;
 
         User user = new User();
-        user.setId(userDto.getId());
-        user.setName(userDto.getName());
-        user.setEmail(userDto.getEmail());
-        user.setPassword(userDto.getPassword());
-        user.setActif(userDto.isActif());
+        user.setId(dto.getId());
+        user.setFistname(dto.getFirstname());
+        user.setLastname(dto.getLastname());
+        user.setEmail(dto.getEmail());
+        user.setPassword(dto.getPassword());
+        user.setActif(dto.isActif());
 
-        Role role = RoleMapper.mapToRole(userDto.getRoleDto());
-        user.setRole(role);
+        if (dto.getRoleDto() != null) {
+            Role role = RoleMapper.toEntity(dto.getRoleDto());
+            user.getRoles().add(role);
+        }
 
         return user;
     }

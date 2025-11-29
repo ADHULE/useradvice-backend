@@ -1,18 +1,14 @@
 package BlackAdhuleSystem.dev.userAdvicesMariadb.entity;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
+@Builder
 @Entity
 @Getter
 @Setter
@@ -23,21 +19,34 @@ public class User implements UserDetails {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    private String name;
+    private String fistname;
+    private String lastname;
     private String email;
     private String password;
-    private boolean actif=false;
-    @ManyToOne(cascade = CascadeType.ALL)
-    private Role role;
+    private boolean actif = false;
+
+    @ManyToMany(fetch = FetchType.EAGER)
+    private Set<Role> roles = new HashSet<>();
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return Collections.singletonList(new SimpleGrantedAuthority("ROLE_"+role.getRoleType()));
+        Set<GrantedAuthority> authorities = new HashSet<>();
+
+        for (Role role : roles) {
+            authorities.add(new SimpleGrantedAuthority(role.getName()));
+
+            for (Privilege privilege : role.getPrivileges()) {
+                authorities.add(new SimpleGrantedAuthority(privilege.getName().name()));
+            }
+        }
+
+        return authorities;
     }
+
 
     @Override
     public String getUsername() {
-        return this.name;
+        return this.fistname;
     }
 
     @Override

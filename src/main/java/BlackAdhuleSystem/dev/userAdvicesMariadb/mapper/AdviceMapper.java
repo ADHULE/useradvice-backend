@@ -9,7 +9,7 @@ public class AdviceMapper {
 
 
     public static AdviceDto mapToAdviceDto(Advice advice) {
-        UserDto userDto=UserMapper.mapToUserDto(advice.getUser());
+        UserDto userDto=UserMapper.toDto(advice.getUser());
         return new AdviceDto(
                 advice.getId(),
                 advice.getMessage(),
@@ -21,7 +21,7 @@ public class AdviceMapper {
     }
 
     public static Advice mapToAdvice(AdviceDto adviceDto) {
-        User user =UserMapper.mapToUser(adviceDto.getUserDto());
+        User user =UserMapper.toEntity(adviceDto.getUserDto());
         Advice advice = new Advice();
         advice.setId(adviceDto.getId());
         advice.setMessage(adviceDto.getMessage());

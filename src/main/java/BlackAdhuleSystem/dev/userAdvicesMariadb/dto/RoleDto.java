@@ -1,14 +1,16 @@
 package BlackAdhuleSystem.dev.userAdvicesMariadb.dto;
 
-import BlackAdhuleSystem.dev.userAdvicesMariadb.entity.RoleType;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.Setter;
+import BlackAdhuleSystem.dev.userAdvicesMariadb.entity.PermissionEnum;
+import lombok.*;
 
+import java.util.Set;
+
+@Builder
 @Getter
 @Setter
 @AllArgsConstructor
+@Data
 public class RoleDto {
-    private Long id;
-    private RoleType roleType;
+    private String name;
+    private Set<PermissionEnum> permissions;
 }

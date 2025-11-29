@@ -1,11 +1,12 @@
 package BlackAdhuleSystem.dev.userAdvicesMariadb.entity;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
+import java.util.HashSet;
+import java.util.Set;
+
+@Builder
 @Entity
 @Getter
 @Setter
@@ -16,8 +17,8 @@ public class Role {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    private String name;
 
-    @Enumerated(EnumType.STRING)
-    private RoleType roleType;
-
+    @ManyToMany(fetch = FetchType.EAGER)
+    private Set<Privilege> privileges = new HashSet<>();
 }
