@@ -1,0 +1,109 @@
+spring:
+  application:
+    # Nom officiel de l’application
+    name: userAdvicesMariadb
+
+  datasource:
+    #  Connexion à MariaDB
+    url: jdbc:mariadb://localhost:3308/useradvicesmariadb
+    username: app_user
+    password: app_pass
+    driver-class-name: org.mariadb.jdbc.Driver
+
+  jpa:
+    #  Gestion automatique des tables
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MariaDBDialect
+
+  mail:
+    # Serveur d’envoi d’emails (pour code 6 chiffres, reset password)
+    host: localhost
+    port: 2526
+
+  security:
+    oauth2:
+      client:
+
+        # 1. Déclaration des fournisseurs OAuth2
+        registration:
+
+          google:
+            #  Identifiants Google API Console
+            client-id: 458358804580-ldmiqvlig3bpnk3205kvidp9spg8ipb3.apps.googleusercontent.com
+            client-secret: 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
+
+            #  Scopes obligatoires pour OpenID Connect (profil + email)
+            scope:
+              - openid
+              - profile
+              - email
+
+            # URL de redirection après login
+            redirect-uri: "http://localhost:9191/login/oauth2/code/google"
+
+            #  Nom du fournisseur (affiché dans ton UI)
+            client-name: Google
+
+          facebook:
+            client-id: facebook-client-id
+            client-secret: facebook-client-secret
+
+            #  Scopes permissifs Facebook
+            scope:
+              - public_profile
+              - email
+
+            redirect-uri: "http://localhost:9191/login/oauth2/code/facebook"
+            client-name: Facebook
+
+          github:
+            client-id: Ov23likkwEWOdEQRFVKr
+            client-secret: 52438dea155088efe044a172b9366d913619d2b4
+
+            #  Scope pour obtenir l’email GitHub
+            scope:
+              - user:email
+
+            redirect-uri: "http://localhost:9191/login/oauth2/code/github"
+            client-name: GitHub
+
+
+        #  2. Endpoints des fournisseurs OAuth2
+        provider:
+
+          google:
+            #  Utilise OpenID Connect (toujours recommandé)
+            issuer-uri: https://accounts.google.com
+
+          facebook:
+            #  Endpoints OAuth2 Facebook
+            authorization-uri: https://www.facebook.com/dialog/oauth
+            token-uri: https://graph.facebook.com/oauth/access_token
+            user-info-uri: https://graph.facebook.com/me?fields=id,name,email
+
+          github:
+            authorization-uri: https://github.com/login/oauth/authorize
+            token-uri: https://github.com/login/oauth/access_token
+            user-info-uri: https://api.github.com/user
+
+server:
+  #  Port HTTP
+  port: 9191
+
+  servlet:
+    # Toutes les routes commenceront par /api
+    context-path: /api
+
+logging:
+  level:
+    #  Logs détaillés pour comprendre OAuth2
+    org.springframework.security: debug
+
+
+app:
+  secret-key: 6e2f3b5c8a7d9e1f2c4b6a8e9d1f3c5b7a9d2e4f6b8c1a3f5d7e9b1c3d5f7a96e2f3b5c8a7d9e1f2c4b6a8e9d1f3c5b7a9d2e4f6b8c1a3f5d7e9b1c3d5f7a9
+  # Clé secrète utilisée pour signer et vérifier les tokens JWT
