@@ -7,26 +7,25 @@ import BlackAdhuleSystem.dev.userAdvicesMariadb.entity.User;
 
 public class AdviceMapper {
 
-
     public static AdviceDto mapToAdviceDto(Advice advice) {
-        UserDto userDto=UserMapper.toDto(advice.getUser());
+        UserDto userDto = advice.getUser() != null ? UserMapper.toDto(advice.getUser()) : null;
         return new AdviceDto(
                 advice.getId(),
                 advice.getMessage(),
-                advice.getStatus() ,
-                userDto
-
-
+                advice.getStatus(),
+                userDto,
+                advice.getCreatedAt()
         );
     }
 
     public static Advice mapToAdvice(AdviceDto adviceDto) {
-        User user =UserMapper.toEntity(adviceDto.getUserDto());
+        User user = adviceDto.getUserDto() != null ? UserMapper.toEntity(adviceDto.getUserDto()) : null;
         Advice advice = new Advice();
         advice.setId(adviceDto.getId());
         advice.setMessage(adviceDto.getMessage());
         advice.setStatus(adviceDto.getStatus());
         advice.setUser(user);
+        // ⚠️ createdAt est auto-géré par Hibernate, inutile de le setter
         return advice;
     }
 }

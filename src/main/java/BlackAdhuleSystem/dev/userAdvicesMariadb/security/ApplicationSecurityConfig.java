@@ -12,8 +12,14 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
 
 import static org.springframework.http.HttpMethod.*;
 
@@ -30,8 +36,9 @@ public class ApplicationSecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
+                .cors(cors -> {}) // ✅ Active CORS
                 .authorizeHttpRequests(auth -> auth
-                        // --------------------- UserController ---------------------
+                        // --------------------- AuthController ---------------------
                         .requestMatchers(POST, "/inscription").permitAll()
                         .requestMatchers(POST, "/activation").permitAll()
                         .requestMatchers(POST, "/login").permitAll()
@@ -49,13 +56,19 @@ public class ApplicationSecurityConfig {
                         .requestMatchers("/login/oauth2/**").permitAll()
 
                         // --------------------- AdviceController ---------------------
-                        // Lecture libre
-                        .requestMatchers(GET, "/advices/all").permitAll()
+                        .requestMatchers(GET, "/advices").permitAll()
                         .requestMatchers(GET, "/advices/{id}").permitAll()
-                        // Création, modification, suppression protégées
                         .requestMatchers(POST, "/advices").authenticated()
-                        .requestMatchers(PUT, "/advices/update/**").authenticated()
-                        .requestMatchers(DELETE, "/advices/delete/**").authenticated()
+                        .requestMatchers(PUT, "/advices/{id}").authenticated()
+                        .requestMatchers(DELETE, "/advices/{id}").authenticated()
+
+                        // --------------------- UserController ---------------------
+                        .requestMatchers(GET, "/users/me").authenticated()
+                        .requestMatchers(PUT, "/users/me").authenticated()
+                        .requestMatchers(DELETE, "/users/me").authenticated()
+
+                        // --------------------- Partie ADMIN ---------------------
+                        .requestMatchers(GET, "/users").permitAll()
 
                         // --------------------- Divers ---------------------
                         .requestMatchers("/error").permitAll()
@@ -64,8 +77,8 @@ public class ApplicationSecurityConfig {
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
-                .formLogin().disable()
-                .logout().disable()
+                .formLogin(AbstractHttpConfigurer::disable)
+                .logout(AbstractHttpConfigurer::disable)
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
@@ -81,5 +94,19 @@ public class ApplicationSecurityConfig {
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
+    }
+
+    // ✅ Configuration CORS globale
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(List.of("http://localhost:3001")); // ton frontend
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+        configuration.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
     }
 }

@@ -22,9 +22,7 @@ public interface UserService {
     // Modifier mot de passe de l'utilisateur connecté
     void changePassword(Map<String,String> parameter) ;
     void newPassword(Map<String,String> parameter);
-   
 
 
-
-
+    List<UserDto> getAllUsers();
 }

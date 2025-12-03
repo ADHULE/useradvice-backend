@@ -209,6 +209,18 @@ public class UserServiceImp implements UserService, UserDetailsService {
         validationService.deleteValidation(validation.getId());
     }
 
+    /**
+     * @return 
+     */
+    @Override
+    public List<UserDto> getAllUsers() {
+        return userRepository.findAll() // récupère tous les utilisateurs en base
+                .stream()
+                .map(UserMapper::toDto) // convertit chaque User en UserDto
+                .collect(Collectors.toList()); // retourne une liste de DTO
+    }
+
+
 
     // ---------------------------
     // Implémentation pour Spring Security

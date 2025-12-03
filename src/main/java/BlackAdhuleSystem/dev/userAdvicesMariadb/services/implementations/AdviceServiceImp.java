@@ -2,104 +2,102 @@ package BlackAdhuleSystem.dev.userAdvicesMariadb.services.implementations;
 
 import BlackAdhuleSystem.dev.userAdvicesMariadb.dto.AdviceDto;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.entity.Advice;
-import BlackAdhuleSystem.dev.userAdvicesMariadb.entity.User; // Import de l'entité User
+import BlackAdhuleSystem.dev.userAdvicesMariadb.entity.User;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.mapper.AdviceMapper;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.repository.AdviceRepository;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.services.interfaces.AdviceService;
-import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+/**
+ * Implémentation du service AdviceService.
+ * Gère la logique métier autour des conseils (Advice).
+ */
 @Service
-@AllArgsConstructor
+@RequiredArgsConstructor
 public class AdviceServiceImp implements AdviceService {
 
-    private AdviceRepository adviceRepository;
+    private final AdviceRepository adviceRepository;
 
     /**
-     * Crée un nouveau conseil (Advice) à partir d'un DTO et l'associe à l'utilisateur authentifié.
-     * C'est la méthode principale de création désormais.
+     * Crée un nouveau conseil et l'associe à l'utilisateur authentifié.
      *
-     * @param adviceDto DTO contenant les données du conseil à créer.
-     * @param user L'entité User représentant l'utilisateur actuellement authentifié.
+     * @param adviceDto DTO contenant les données du conseil.
+     * @param user      Utilisateur authentifié.
      * @return AdviceDto représentant le conseil sauvegardé.
      */
     @Override
     public AdviceDto createAdvice(AdviceDto adviceDto, User user) {
         Advice advice = AdviceMapper.mapToAdvice(adviceDto);
-
-        // CORRECTION pour lier l'Advice à l'utilisateur qui l'a créé (pour que user_id ne soit pas NULL)
-        advice.setUser(user);
-
+        advice.setUser(user); // Associer l'utilisateur créateur
         Advice savedAdvice = adviceRepository.save(advice);
         return AdviceMapper.mapToAdviceDto(savedAdvice);
     }
 
     /**
-     * Récupère tous les conseils enregistrés dans la base de données.
+     * Récupère tous les conseils.
      *
-     * @return Liste de AdviceDto représentant tous les conseils.
+     * @return Liste de AdviceDto.
      */
     @Override
     public List<AdviceDto> getAllAdvices() {
-        List<Advice> advices = adviceRepository.findAll();
-        return advices.stream()
+        return adviceRepository.findAll()
+                .stream()
                 .map(AdviceMapper::mapToAdviceDto)
                 .collect(Collectors.toList());
     }
 
     /**
-     * Récupère un conseil spécifique par son identifiant.
+     * Récupère un conseil par son identifiant.
      *
      * @param adviceId Identifiant du conseil.
-     * @return AdviceDto correspondant au conseil trouvé, ou null si absent.
+     * @return AdviceDto ou null si absent.
      */
     @Override
     public AdviceDto getAdviceById(Long adviceId) {
-        Optional<Advice> adviceOptional = adviceRepository.findById(adviceId);
-        return adviceOptional.map(AdviceMapper::mapToAdviceDto).orElse(null);
+        return adviceRepository.findById(adviceId)
+                .map(AdviceMapper::mapToAdviceDto)
+                .orElse(null);
     }
 
     /**
-     * Met à jour un conseil existant avec les nouvelles données fournies,
-     * en vérifiant que l'utilisateur authentifié est bien le créateur du conseil.
-     * C'est la méthode principale de mise à jour désormais.
+     * Met à jour un conseil existant.
+     * Vérifie que l'utilisateur authentifié est bien le créateur.
      *
-     * @param adviceId  Identifiant du conseil à mettre à jour.
-     * @param adviceDto Nouvelles données du conseil.
-     * @param user L'entité User représentant l'utilisateur actuellement authentifié.
-     * @return AdviceDto mis à jour, ou null si le conseil n'existe pas ou si l'utilisateur n'est pas autorisé.
+     * @param adviceId  Identifiant du conseil.
+     * @param adviceDto Nouvelles données.
+     * @param user      Utilisateur authentifié.
+     * @return AdviceDto mis à jour ou null si non autorisé.
      */
     @Override
     public AdviceDto updateAdvice(Long adviceId, AdviceDto adviceDto, User user) {
         Optional<Advice> adviceOptional = adviceRepository.findById(adviceId);
 
-        if (adviceOptional.isPresent()) {
-            Advice adviceToUpdate = adviceOptional.get();
-
-            // SÉCURITÉ : Vérifie si l'utilisateur authentifié est bien le propriétaire de l'Advice
-            if (adviceToUpdate.getUser() != null && !adviceToUpdate.getUser().getId().equals(user.getId())) {
-                // L'utilisateur n'est pas le propriétaire
-                // Un contrôleur pourrait ici renvoyer 403 Forbidden
-                return null;
-            }
-
-            adviceToUpdate.setMessage(adviceDto.getMessage());
-            adviceToUpdate.setStatus(adviceDto.getStatus());
-
-            Advice updatedAdvice = adviceRepository.save(adviceToUpdate);
-            return AdviceMapper.mapToAdviceDto(updatedAdvice);
+        if (adviceOptional.isEmpty()) {
+            return null; // ⚠️ À remplacer par une exception personnalisée
         }
-        return null;
+
+        Advice adviceToUpdate = adviceOptional.get();
+
+        if (adviceToUpdate.getUser() != null && !adviceToUpdate.getUser().getId().equals(user.getId())) {
+            return null; // ⚠️ À remplacer par une exception Unauthorized
+        }
+
+        adviceToUpdate.setMessage(adviceDto.getMessage());
+        adviceToUpdate.setStatus(adviceDto.getStatus());
+
+        Advice updatedAdvice = adviceRepository.save(adviceToUpdate);
+        return AdviceMapper.mapToAdviceDto(updatedAdvice);
     }
 
     /**
-     * Supprime un conseil de la base de données par son identifiant.
+     * Supprime un conseil par son identifiant.
      *
-     * @param adviceId Identifiant du conseil à supprimer.
+     * @param adviceId Identifiant du conseil.
      */
     @Override
     public void deleteAdvice(Long adviceId) {

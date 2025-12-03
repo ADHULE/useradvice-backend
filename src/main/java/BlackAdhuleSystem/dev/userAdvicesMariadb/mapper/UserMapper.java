@@ -13,6 +13,8 @@ public class UserMapper {
         dto.setId(user.getId());
         dto.setFirstname(user.getFistname());
         dto.setLastname(user.getLastname());
+        dto.setGender(user.getGender());
+        dto.setDateOfBirth(user.getDateOfBirth());
         dto.setEmail(user.getEmail());
         dto.setPassword(null); //  On ne renvoie jamais le mot de passe
         dto.setActif(user.isActif());
@@ -31,6 +33,8 @@ public class UserMapper {
         user.setId(dto.getId());
         user.setFistname(dto.getFirstname());
         user.setLastname(dto.getLastname());
+        user.setGender(dto.getGender());
+        user.setDateOfBirth(dto.getDateOfBirth());
         user.setEmail(dto.getEmail());
         user.setPassword(dto.getPassword());
         user.setActif(dto.isActif());
