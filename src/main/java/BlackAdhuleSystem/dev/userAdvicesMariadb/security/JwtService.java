@@ -280,4 +280,45 @@ public class JwtService {
                 "expiresAt", new Date(expirationTime).toString()
         );
     }
+    // ============================================================
+// GENERER UN NOUVEAU ACCESS TOKEN A PARTIR D'UN REFRESH TOKEN
+// ============================================================
+    public String generateAccessTokenFromRefresh(String refreshValue) {
+        if (refreshValue == null) {
+            throw new RuntimeException("Refresh token manquant !");
+        }
+
+        // Rechercher le JWT associé à ce refresh token
+        Jwt jwt = jwtRepository.findByRefreshTokenValue(refreshValue)
+                .orElseThrow(() -> new RuntimeException("Refresh token invalide !"));
+
+        RefreshToken refreshToken = jwt.getRefreshToken();
+        User user = jwt.getUser();
+
+        // Vérifier expiration du refresh token
+        if (refreshToken.isExpire() || refreshToken.getExpiration().isBefore(Instant.now())) {
+            refreshToken.setExpire(true);
+            jwt.setExpire(true);
+            jwt.setDesactive(true);
+            jwtRepository.save(jwt);
+
+            throw new RuntimeException("Refresh token expiré !");
+        }
+
+        // Générer un nouveau access token
+        long now = System.currentTimeMillis();
+        long expirationTime = now + (60 * 1000); // 1 minute
+
+        String newAccessToken = Jwts.builder()
+                .setSubject(user.getEmail())
+                .setIssuedAt(new Date(now))
+                .setExpiration(new Date(expirationTime))
+                .signWith(getSigningKey(), SignatureAlgorithm.HS512)
+                .compact();
+
+        log.info("Nouveau access token généré pour {}", user.getEmail());
+
+        return newAccessToken;
+    }
+
 }

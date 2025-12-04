@@ -25,4 +25,6 @@ public interface UserService {
 
 
     List<UserDto> getAllUsers();
+
+    void generateNewCode(Map<String, String> parameter);
 }

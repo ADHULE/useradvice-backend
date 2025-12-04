@@ -18,6 +18,7 @@ public class UserMapper {
         dto.setEmail(user.getEmail());
         dto.setPassword(null); //  On ne renvoie jamais le mot de passe
         dto.setActif(user.isActif());
+        dto.setCreatedAt(user.getCreatedAt());
 
         // Un user n'a pas un set de rôle dans votre DTO → on prend le premier
         user.getRoles().stream().findFirst()
@@ -38,6 +39,7 @@ public class UserMapper {
         user.setEmail(dto.getEmail());
         user.setPassword(dto.getPassword());
         user.setActif(dto.isActif());
+        user.setCreatedAt(dto.getCreatedAt());
 
         if (dto.getRoleDto() != null) {
             Role role = RoleMapper.toEntity(dto.getRoleDto());

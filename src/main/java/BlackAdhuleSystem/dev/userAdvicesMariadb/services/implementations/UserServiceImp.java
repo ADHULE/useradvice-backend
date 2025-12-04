@@ -150,7 +150,8 @@ public class UserServiceImp implements UserService, UserDetailsService {
     }
 
     /**
-     * @param parameter
+     * Gère la demande d'un nouveau code pour la réinitialisation du mot de passe.
+     * @param parameter Map contenant l'email de l'utilisateur.
      */
     @Override
     public void changePassword(Map<String, String> parameter) {
@@ -169,7 +170,8 @@ public class UserServiceImp implements UserService, UserDetailsService {
 
 
     /**
-     * @param parameter
+     * Gère la mise à jour du mot de passe après validation du code.
+     * @param parameter Map contenant l'email, le code de validation et le nouveau mot de passe.
      */
     @Override
     public void newPassword(Map<String, String> parameter) {
@@ -210,7 +212,7 @@ public class UserServiceImp implements UserService, UserDetailsService {
     }
 
     /**
-     * @return 
+     * @return Liste de tous les utilisateurs (pour l'administration).
      */
     @Override
     public List<UserDto> getAllUsers() {
@@ -220,6 +222,40 @@ public class UserServiceImp implements UserService, UserDetailsService {
                 .collect(Collectors.toList()); // retourne une liste de DTO
     }
 
+    /**
+     * Gère la demande d'un nouveau code d'activation pour un compte INACTIF.
+     *
+     * @param parameter Map contenant l'email de l'utilisateur.
+     */
+    @Override
+    public void generateNewCode(Map<String, String> parameter) {
+        String email = parameter == null ? null : parameter.get("email");
+        if (email == null || email.isBlank()) {
+            throw new IllegalArgumentException("L'email est requis pour générer un nouveau code.");
+        }
+
+        // 1. Rechercher l'utilisateur par email
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("Aucun compte trouvé pour l'email: " + email));
+
+        // 2. Vérifier si le compte est déjà actif
+        if (user.isActif()) {
+            throw new RuntimeException("Le compte est déjà actif. Vous n'avez pas besoin d'un nouveau code d'activation.");
+        }
+
+        // 3. Mapper en DTO pour le service de validation
+        UserDto userDto = UserMapper.toDto(user);
+
+        try {
+            // 4. Créer et envoyer le nouveau code d’activation.
+            // La logique de 'saveValidation' devrait invalider l'ancien code s'il existe.
+            validationService.saveValidation(userDto);
+            logger.info("Nouveau code d'activation généré et envoyé à {}", user.getEmail());
+        } catch (Exception e) {
+            logger.error("Erreur lors de l’envoi du nouveau code de validation à {} : {}", user.getEmail(), e.getMessage());
+            throw new RuntimeException("Échec de l'envoi du nouveau code de validation. Veuillez réessayer.");
+        }
+    }
 
 
     // ---------------------------

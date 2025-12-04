@@ -36,11 +36,13 @@ public class ApplicationSecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
-                .cors(cors -> {}) // ✅ Active CORS
+                .cors(cors -> {
+                }) // Active CORS
                 .authorizeHttpRequests(auth -> auth
                         // --------------------- AuthController ---------------------
                         .requestMatchers(POST, "/inscription").permitAll()
                         .requestMatchers(POST, "/activation").permitAll()
+                        .requestMatchers("/generate-new-code").permitAll()
                         .requestMatchers(POST, "/login").permitAll()
                         .requestMatchers(POST, "/refresh-token").permitAll()
                         .requestMatchers(POST, "/change-password").permitAll()
@@ -96,7 +98,7 @@ public class ApplicationSecurityConfig {
         return config.getAuthenticationManager();
     }
 
-    // ✅ Configuration CORS globale
+    // Configuration CORS globale
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();

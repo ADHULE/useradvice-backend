@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.*;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Builder
 
@@ -22,6 +23,7 @@ public class UserDto {
     private String email;
     private String password;
     private boolean actif=false;
+    private LocalDateTime createdAt;
     private RoleDto roleDto;
 
 }
