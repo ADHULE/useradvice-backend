@@ -3,6 +3,7 @@ package BlackAdhuleSystem.dev.userAdvicesMariadb.controller;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.dto.AdviceDto;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.entity.User;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.services.interfaces.AdviceService;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -11,48 +12,55 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@CrossOrigin("*")
-@RequiredArgsConstructor
+/**
+ * Controller pour gérer les avis (Advice)
+ * - Création, lecture, mise à jour, suppression
+ * - Respect des droits :
+ *      - utilisateur = peut gérer ses propres avis
+ *      - admin = peut gérer tous les avis
+ */
 @RestController
+@RequiredArgsConstructor
 @RequestMapping("/advices")
 public class AdviceController {
 
     private final AdviceService adviceService;
 
-    /**
-     * Crée un nouveau conseil et l'associe à l'utilisateur authentifié.
-     *
-     * @param adviceDto données du conseil à créer.
-     * @param user utilisateur authentifié (injecté par Spring Security).
-     * @return le conseil créé avec statut HTTP 201.
-     */
+    // ────────────────────────────────────────────────
+    // CREATE (un utilisateur connecté peut créer un avis)
+    // ────────────────────────────────────────────────
     @PostMapping
     public ResponseEntity<AdviceDto> createAdviceApi(
             @RequestBody AdviceDto adviceDto,
-            @AuthenticationPrincipal User user) {
-
+            @AuthenticationPrincipal User user // Injecte l'utilisateur connecté
+    ) {
         AdviceDto savedAdvice = adviceService.createAdvice(adviceDto, user);
         return ResponseEntity.status(HttpStatus.CREATED).body(savedAdvice);
     }
 
-    /**
-     * Récupère tous les conseils.
-     *
-     * @return liste des conseils avec statut HTTP 200.
-     */
-
-    @GetMapping
+    // ────────────────────────────────────────────────
+    // LIST ALL (accessible uniquement par l’admin)
+    // ────────────────────────────────────────────────
+    @GetMapping("/admin")
     public ResponseEntity<List<AdviceDto>> getAllAdvicesApi() {
         List<AdviceDto> advices = adviceService.getAllAdvices();
         return ResponseEntity.ok(advices);
     }
 
-    /**
-     * Récupère un conseil par son identifiant.
-     *
-     * @param adviceId identifiant du conseil.
-     * @return le conseil trouvé ou statut 404 si absent.
-     */
+    // ────────────────────────────────────────────────
+    // LIST MY OWN ADVICES (utilisateur peut voir ses avis)
+    // ────────────────────────────────────────────────
+    @GetMapping("/me")
+    public ResponseEntity<List<AdviceDto>> getMyAdvicesApi(
+            @AuthenticationPrincipal User user
+    ) {
+        List<AdviceDto> advices = adviceService.getAdvicesByUser(user);
+        return ResponseEntity.ok(advices);
+    }
+
+    // ────────────────────────────────────────────────
+    // GET BY ID (un utilisateur peut voir un avis par son id)
+    // ────────────────────────────────────────────────
     @GetMapping("/{id}")
     public ResponseEntity<AdviceDto> getAdviceByIdApi(@PathVariable("id") Long adviceId) {
         AdviceDto advice = adviceService.getAdviceById(adviceId);
@@ -61,44 +69,47 @@ public class AdviceController {
                 : ResponseEntity.status(HttpStatus.NOT_FOUND).build();
     }
 
-    /**
-     * Met à jour un conseil existant, en vérifiant l'autorisation de l'utilisateur.
-     *
-     * @param adviceId identifiant du conseil à modifier.
-     * @param adviceDto nouvelles données du conseil.
-     * @param user utilisateur authentifié.
-     * @return le conseil mis à jour, statut 404 si absent, ou statut 403 si non autorisé.
-     */
+    // ────────────────────────────────────────────────
+    // UPDATE (un utilisateur peut modifier uniquement son propre avis)
+    // ────────────────────────────────────────────────
     @PutMapping("/{id}")
     public ResponseEntity<AdviceDto> updateAdviceApi(
             @PathVariable("id") Long adviceId,
             @RequestBody AdviceDto adviceDto,
-            @AuthenticationPrincipal User user) {
-
+            @AuthenticationPrincipal User user
+    ) {
         AdviceDto updatedAdvice = adviceService.updateAdvice(adviceId, adviceDto, user);
 
         if (updatedAdvice != null) {
             return ResponseEntity.ok(updatedAdvice);
-        } else {
-            AdviceDto existingAdvice = adviceService.getAdviceById(adviceId);
-            return (existingAdvice == null)
-                    ? ResponseEntity.status(HttpStatus.NOT_FOUND).build()
-                    : ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
+
+        // Si l’avis existe mais n’appartient pas à l’utilisateur => FORBIDDEN
+        boolean exists = adviceService.getAdviceById(adviceId) != null;
+        return exists
+                ? ResponseEntity.status(HttpStatus.FORBIDDEN).build()
+                : ResponseEntity.status(HttpStatus.NOT_FOUND).build();
     }
 
-    /**
-     * Supprime un conseil par son identifiant.
-     * ⚠️ Vérification d'autorisation à ajouter si seuls les propriétaires peuvent supprimer.
-     *
-     * @param adviceId identifiant du conseil.
-     * @return statut HTTP 204 si suppression réussie.
-     */
+    // ────────────────────────────────────────────────
+    // DELETE (utilisateur peut supprimer ses avis, admin peut supprimer tous les avis)
+    // ────────────────────────────────────────────────
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteAdviceApi(@PathVariable("id") Long adviceId,
-                                                @AuthenticationPrincipal User user) {
-        // TODO: Vérifier que user est bien propriétaire avant suppression
-        adviceService.deleteAdvice(adviceId);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<Void> deleteAdviceApi(
+            @PathVariable("id") Long adviceId,
+            @AuthenticationPrincipal User user
+    ) {
+        // La méthode deleteAdvice doit retourner true si suppression autorisée et réussie
+        boolean success = adviceService.deleteAdvice(adviceId, user);
+
+        if (success) {
+            return ResponseEntity.noContent().build();
+        }
+
+        // Si l’avis existe mais suppression interdite => FORBIDDEN
+        boolean exists = adviceService.getAdviceById(adviceId) != null;
+        return exists
+                ? ResponseEntity.status(HttpStatus.FORBIDDEN).build()
+                : ResponseEntity.status(HttpStatus.NOT_FOUND).build();
     }
 }

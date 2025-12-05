@@ -58,7 +58,9 @@ public class ApplicationSecurityConfig {
                         .requestMatchers("/login/oauth2/**").permitAll()
 
                         // --------------------- AdviceController ---------------------
-                        .requestMatchers(GET, "/advices").permitAll()
+                        .requestMatchers(OPTIONS, "/**").permitAll() // pour CORS
+                        .requestMatchers(GET, "/advices/me").permitAll()
+                        .requestMatchers(GET, "/advices/admin").permitAll()
                         .requestMatchers(GET, "/advices/{id}").permitAll()
                         .requestMatchers(POST, "/advices").authenticated()
                         .requestMatchers(PUT, "/advices/{id}").authenticated()
@@ -104,11 +106,12 @@ public class ApplicationSecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(List.of("http://localhost:3001")); // ton frontend
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+        configuration.setAllowedHeaders(List.of("*")); // Autorise tous les headers
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
+
 }

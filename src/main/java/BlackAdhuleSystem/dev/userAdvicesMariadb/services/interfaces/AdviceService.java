@@ -17,6 +17,9 @@ public interface AdviceService {
 
     List<AdviceDto> getAllAdvices();
 
+
+    List<AdviceDto> getAllAdvicesByUser(User user);
+
     AdviceDto getAdviceById(Long adviceId);
 
     /**
@@ -28,6 +31,7 @@ public interface AdviceService {
      */
     AdviceDto updateAdvice(Long adviceId, AdviceDto adviceDto, User user); // <-- Signature corrigée
 
-    void deleteAdvice(Long adviceId);
+    List<AdviceDto> getAdvicesByUser(User user);
 
+    boolean deleteAdvice(Long adviceId, User user);
 }

@@ -2,6 +2,7 @@ package BlackAdhuleSystem.dev.userAdvicesMariadb.controller;
 
 import BlackAdhuleSystem.dev.userAdvicesMariadb.dto.AuthentificationDto;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.dto.UserDto;
+import BlackAdhuleSystem.dev.userAdvicesMariadb.entity.User;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.security.JwtService;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.services.interfaces.UserService;
 import lombok.AllArgsConstructor;
@@ -26,7 +27,7 @@ import java.util.Map;
 
 @Slf4j
 @RestController
-@RequestMapping()
+@RequestMapping() 
 @AllArgsConstructor
 public class UserController {
 
@@ -36,19 +37,13 @@ public class UserController {
 
     // --------------------- AUTHENTIFICATION ---------------------
 
-    /**
-     * Inscription d'un nouvel utilisateur
-     */
-    @PostMapping(path = "inscription")
+    @PostMapping("/inscription")
     public ResponseEntity<UserDto> inscription(@RequestBody UserDto userDto) {
         UserDto savedUser = userService.createUser(userDto);
         return new ResponseEntity<>(savedUser, HttpStatus.CREATED);
     }
 
-    /**
-     * Activation du compte avec un code envoyé par email
-     */
-    @PostMapping(path = "activation")
+    @PostMapping("/activation")
     public ResponseEntity<UserDto> activation(@RequestBody Map<String, String> activation) {
         try {
             UserDto activatedUser = userService.activation(activation);
@@ -59,21 +54,13 @@ public class UserController {
         }
     }
 
-    /**
-     * Générer un nouveau code d'activation
-     */
-    @PostMapping(path = "generate-new-code")
+    @PostMapping("/generate-new-code")
     public ResponseEntity<String> generateNewCode(@RequestBody Map<String, String> parameter) {
         userService.generateNewCode(parameter);
         return ResponseEntity.ok("Un nouveau code a été envoyé à votre email.");
     }
 
-    /**
-     * Connexion utilisateur : génère un access token et un refresh token
-     * - Access token renvoyé dans le corps JSON
-     * - Refresh token placé dans un cookie HttpOnly
-     */
-    @PostMapping(path = "login")
+    @PostMapping("/login")
     public ResponseEntity<Map<String, String>> connexion(@RequestBody AuthentificationDto authentificationDto,
                                                          HttpServletResponse response) {
         Authentication authentication = authenticationManager.authenticate(
@@ -84,26 +71,24 @@ public class UserController {
         );
 
         if (authentication.isAuthenticated()) {
-            // Générer access et refresh token
             Map<String, String> tokenPayload = jwtService.generateToken(authentificationDto.email());
             String accessToken = tokenPayload.get("token");
             String refreshToken = tokenPayload.get("refresh");
 
-            // Placer le refresh token dans un cookie HttpOnly
+            // ✅ En dev, secure(false). En prod HTTPS, secure(true).
             ResponseCookie cookie = ResponseCookie.from("refreshToken", refreshToken)
                     .httpOnly(true)
-                    .secure(true) // mettre true en prod avec HTTPS
-                    .path("/refresh-token") // endpoint de refresh
-                    .maxAge(7 * 24 * 60 * 60) // 7 jours
+                    .secure(false) // ⚠️ mettre true en prod
+                    .path("/api/refresh-token")
+                    .maxAge(7 * 24 * 60 * 60)
                     .sameSite("Strict")
                     .build();
 
             response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 
-            // Retourner access token et expiration
             return ResponseEntity.ok(Map.of(
                     "token", accessToken,
-                    "expiresAt", Instant.now().plusSeconds(900).toString() // 15 min
+                    "expiresAt", jwtService.getExpiration(accessToken).toString() // ✅ cohérent avec exp du JWT
             ));
         } else {
             log.warn("Échec d'authentification pour {}", authentificationDto.email());
@@ -111,13 +96,14 @@ public class UserController {
         }
     }
 
-    /**
-     * Endpoint de refresh : lit le refresh token depuis le cookie HttpOnly
-     */
-    @PostMapping(path = "refresh-token")
+    @PostMapping("/refresh-token")
     public ResponseEntity<Map<String, String>> refreshTokenRequest(HttpServletRequest request) {
         try {
-            // Récupérer le cookie refreshToken
+            if (request.getCookies() == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("error", "Aucun cookie trouvé"));
+            }
+
             String refreshToken = Arrays.stream(request.getCookies())
                     .filter(c -> "refreshToken".equals(c.getName()))
                     .findFirst()
@@ -129,7 +115,6 @@ public class UserController {
                         .body(Map.of("error", "Refresh token manquant"));
             }
 
-            // Générer un nouveau access token
             String newAccessToken = jwtService.generateAccessTokenFromRefresh(refreshToken);
 
             return ResponseEntity.ok(Map.of("token", newAccessToken));
@@ -139,28 +124,22 @@ public class UserController {
         }
     }
 
-    /**
-     * Déconnexion : invalide le token
-     */
-    @PostMapping(path = "logout")
-    public ResponseEntity<Void> logout(@RequestHeader("Authorization") String authHeader) {
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
         jwtService.deconnexion(authHeader);
         return ResponseEntity.noContent().build();
     }
 
-    /**
-     * Changement de mot de passe
-     */
-    @PostMapping(path = "change-password")
+    @PostMapping("/change-password")
     public ResponseEntity<String> changePassword(@RequestBody Map<String, String> parameter) {
         userService.changePassword(parameter);
         return ResponseEntity.ok("Un code de validation a été envoyé à votre adresse email.");
     }
 
-    /**
-     * Définir un nouveau mot de passe
-     */
-    @PostMapping(path = "new-password")
+    @PostMapping("/new-password")
     public ResponseEntity<String> newPassword(@RequestBody Map<String, String> parameter) {
         userService.newPassword(parameter);
         return ResponseEntity.ok("Votre mot de passe a été mis à jour avec succès.");
@@ -168,21 +147,21 @@ public class UserController {
 
     // --------------------- UTILISATEUR CONNECTÉ ---------------------
 
-    @GetMapping(path = "users/me")
-    public ResponseEntity<UserDto> getMyDetails(@AuthenticationPrincipal UserDto user) {
+    @GetMapping("/users/me")
+    public ResponseEntity<UserDto> getMyDetails(@AuthenticationPrincipal User user) {
         UserDto userDto = userService.getUserById(user.getId());
         return (userDto != null) ? ResponseEntity.ok(userDto) : ResponseEntity.notFound().build();
     }
 
-    @PutMapping(path = "users/me")
-    public ResponseEntity<UserDto> updateMyDetails(@AuthenticationPrincipal UserDto user,
+    @PutMapping("/users/me")
+    public ResponseEntity<UserDto> updateMyDetails(@AuthenticationPrincipal User user,
                                                    @RequestBody UserDto userDto) {
         UserDto updatedUser = userService.updateUser(user.getId(), userDto);
         return (updatedUser != null) ? ResponseEntity.ok(updatedUser) : ResponseEntity.notFound().build();
     }
 
-    @DeleteMapping(path = "users/me")
-    public ResponseEntity<Void> deleteMyAccount(@AuthenticationPrincipal UserDto user) {
+    @DeleteMapping("/users/me")
+    public ResponseEntity<Void> deleteMyAccount(@AuthenticationPrincipal User user) {
         userService.deleteUser(user.getId());
         return ResponseEntity.noContent().build();
     }
@@ -190,10 +169,9 @@ public class UserController {
     // --------------------- PARTIE ADMIN ---------------------
 
     @PreAuthorize("hasRole('ADMIN')")
-    @GetMapping(path = "users")
+    @GetMapping("/users")
     public ResponseEntity<List<UserDto>> getAllUsers() {
         List<UserDto> users = userService.getAllUsers();
         return ResponseEntity.ok(users);
     }
-
 }

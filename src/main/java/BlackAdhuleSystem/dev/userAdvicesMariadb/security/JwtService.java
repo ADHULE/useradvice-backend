@@ -43,8 +43,6 @@ public class JwtService {
     // GENERATION DU TOKEN INITIAL
     // ============================================================
     public Map<String, String> generateToken(String email) {
-
-        // loadUserByUsername retourne UserDetails — cast sûr si ta classe User implémente UserDetails
         UserDetails userDetails = userServiceImp.loadUserByUsername(email);
         User user;
         try {
@@ -55,13 +53,13 @@ public class JwtService {
         }
 
         long now = System.currentTimeMillis();
-        long expirationTime = now + (60 * 1000); // 1 minute
+        long expirationTime = now + (15 * 60 * 1000); // ✅ 15 minutes
 
         RefreshToken refreshToken = RefreshToken.builder()
                 .value(UUID.randomUUID().toString())
                 .expire(false)
                 .creation(Instant.now())
-                .expiration(Instant.now().plusSeconds(1800)) // 30 min
+                .expiration(Instant.now().plusSeconds(7 * 24 * 3600)) // ✅ 7 jours
                 .build();
 
         String jwtToken = Jwts.builder()
@@ -115,7 +113,6 @@ public class JwtService {
     // ============================================================
     public Claims getClaims(String token) throws JwtException {
         token = stripBearer(token);
-
         return Jwts.parserBuilder()
                 .setSigningKey(getSigningKey())
                 .setAllowedClockSkewSeconds(300)
@@ -148,11 +145,9 @@ public class JwtService {
 
         try {
             getClaims(stripped);
-
             return jwtRepository
                     .findByValueAndDesactiveAndExpire(stripped, false, false)
                     .isPresent();
-
         } catch (JwtException e) {
             log.warn("Token non valide : {}", e.getMessage());
             return false;
@@ -209,46 +204,39 @@ public class JwtService {
     @Scheduled(cron = "0 */1 * * * *")
     public void removeUseLessToken() {
         log.info("Nettoyage des tokens inutiles {}", Instant.now());
-        // Suppression des tokens expirés/désactivés
         jwtRepository.deleteAllByExpireAndDesactive(true, true);
     }
 
     // ============================================================
-    // REFRESH TOKEN COMPLET (SANS DUPLICATE ENTRY)
+    // REFRESH TOKEN COMPLET
     // ============================================================
     public Map<String, String> refreshToken(Map<String, String> request) {
-
         String refreshValue = request == null ? null : request.get("refresh");
         if (refreshValue == null) {
             throw new RuntimeException("Refresh token manquant !");
         }
 
-        // Rechercher le JWT existant avec ce refresh token
         Jwt oldJwt = jwtRepository.findByRefreshTokenValue(refreshValue)
                 .orElseThrow(() -> new RuntimeException("Refresh token invalide !"));
 
         RefreshToken refreshToken = oldJwt.getRefreshToken();
         User user = oldJwt.getUser();
 
-        // Vérifier expiration
         if (refreshToken.isExpire() || refreshToken.getExpiration().isBefore(Instant.now())) {
             refreshToken.setExpire(true);
             oldJwt.setExpire(true);
             oldJwt.setDesactive(true);
             jwtRepository.save(oldJwt);
-
             throw new RuntimeException("Refresh token expiré !");
         }
 
-        // Désactiver l'ancien JWT
         oldJwt.setExpire(true);
         oldJwt.setDesactive(true);
         jwtRepository.save(oldJwt);
 
         long now = System.currentTimeMillis();
-        long expirationTime = now + (60 * 1000); // 1 minute
+        long expirationTime = now + (15 * 60 * 1000); // ✅ 15 minutes
 
-        // Générer un nouveau JWT
         String newJwt = Jwts.builder()
                 .setSubject(user.getEmail())
                 .setIssuedAt(new Date(now))
@@ -256,12 +244,11 @@ public class JwtService {
                 .signWith(getSigningKey(), SignatureAlgorithm.HS512)
                 .compact();
 
-        // Toujours créer un nouveau refresh token pour éviter duplicate entry
         RefreshToken newRefreshToken = RefreshToken.builder()
                 .value(UUID.randomUUID().toString())
                 .expire(false)
                 .creation(Instant.now())
-                .expiration(Instant.now().plusSeconds(1800)) // 30 min
+                .expiration(Instant.now().plusSeconds(7 * 24 * 3600)) // ✅ 7 jours
                 .build();
 
         Jwt newRecord = Jwt.builder()
@@ -280,9 +267,10 @@ public class JwtService {
                 "expiresAt", new Date(expirationTime).toString()
         );
     }
+
     // ============================================================
-// GENERER UN NOUVEAU ACCESS TOKEN A PARTIR D'UN REFRESH TOKEN
-// ============================================================
+    // GENERER UN NOUVEAU ACCESS TOKEN A PARTIR D'UN REFRESH TOKEN
+    // ============================================================
     public String generateAccessTokenFromRefresh(String refreshValue) {
         if (refreshValue == null) {
             throw new RuntimeException("Refresh token manquant !");
@@ -307,7 +295,7 @@ public class JwtService {
 
         // Générer un nouveau access token
         long now = System.currentTimeMillis();
-        long expirationTime = now + (60 * 1000); // 1 minute
+        long expirationTime = now + (15 * 60 * 1000); // ✅ 15 minutes
 
         String newAccessToken = Jwts.builder()
                 .setSubject(user.getEmail())
@@ -321,4 +309,20 @@ public class JwtService {
         return newAccessToken;
     }
 
+    // ============================================================
+    // EXTRAIRE LA DATE D'EXPIRATION D'UN ACCESS TOKEN
+    // ============================================================
+    public Instant getExpiration(String accessToken) {
+        try {
+            Claims claims = getClaims(accessToken);
+            Date expiration = claims.getExpiration();
+            return expiration.toInstant();
+        } catch (ExpiredJwtException e) {
+            log.warn("Token déjà expiré : {}", e.getMessage());
+            return e.getClaims().getExpiration().toInstant();
+        } catch (JwtException e) {
+            log.error("Impossible d'extraire l'expiration du token : {}", e.getMessage());
+            throw new RuntimeException("Token invalide !");
+        }
+    }
 }
