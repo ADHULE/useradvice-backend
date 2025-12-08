@@ -61,7 +61,7 @@ public class UserController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<Map<String, String>> connexion(@RequestBody AuthentificationDto authentificationDto,
+    public ResponseEntity<Map<String, Object>> connexion(@RequestBody AuthentificationDto authentificationDto,
                                                          HttpServletResponse response) {
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
@@ -71,31 +71,34 @@ public class UserController {
         );
 
         if (authentication.isAuthenticated()) {
+            // 1. Génération du Token
             Map<String, String> tokenPayload = jwtService.generateToken(authentificationDto.email());
             String accessToken = tokenPayload.get("token");
             String refreshToken = tokenPayload.get("refresh");
 
-            // ✅ En dev, secure(false). En prod HTTPS, secure(true).
+            // 2. Récupération de l'utilisateur complet depuis votre service (DB)
+            // Remplacez userService par votre service réel
+            User user = userService.findByEmail(authentificationDto.email());
+
+            // Cookie Refresh Token
             ResponseCookie cookie = ResponseCookie.from("refreshToken", refreshToken)
                     .httpOnly(true)
-                    .secure(false) // ⚠️ mettre true en prod
+                    .secure(false)
                     .path("/api/refresh-token")
                     .maxAge(7 * 24 * 60 * 60)
-                    .sameSite("Strict")
                     .build();
-
             response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 
+            // 3. Retourner la Map avec l'objet user complet (qui contient roleDto)
             return ResponseEntity.ok(Map.of(
                     "token", accessToken,
-                    "expiresAt", jwtService.getExpiration(accessToken).toString() // ✅ cohérent avec exp du JWT
+                    "expiresAt", jwtService.getExpiration(accessToken).toString(),
+                    "user", user // C'est ici que l'objet JSON de Postman sera inséré
             ));
         } else {
-            log.warn("Échec d'authentification pour {}", authentificationDto.email());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
     }
-
     @PostMapping("/refresh-token")
     public ResponseEntity<Map<String, String>> refreshTokenRequest(HttpServletRequest request) {
         try {
