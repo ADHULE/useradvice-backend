@@ -1,63 +1,70 @@
-version: '3.8' # Version de la syntaxe Docker Compose
+version: "3.8"  # Version de la syntaxe Docker Compose
 
-services: # Définition des services à déployer
-
-  #  Service de base de données MariaDB
+services:
+  # ============================================================
+  #  SERVICE MARIADB (Base de données principale)
+  # ============================================================
   db:
-    container_name: mariadb_container       #  Nom valide sans caractère interdit
-    image: mariadb:12.0.2-noble             # Image officielle basée sur Ubuntu 24.04
+    container_name: mariadb_container
+    image: mariadb:11.4   # Version LTS stable de MariaDB
     restart: always
     environment:
-      MARIADB_ROOT_PASSWORD: example        # Mot de passe du super utilisateur root
-      MARIADB_DATABASE: useradvicesmariadb  # Nom de la base de données à créer automatiquement
-      MARIADB_USER: app_user                # Nom d’un utilisateur personnalisé
-      MARIADB_PASSWORD: app_pass            # Mot de passe de l’utilisateur personnalisé
+      MARIADB_ROOT_PASSWORD: example          # Mot de passe root
+      MARIADB_DATABASE: useradvicesmariadb    # Base créée automatiquement
+      MARIADB_USER: app_user                  # Utilisateur de l'application
+      MARIADB_PASSWORD: app_pass              # Mot de passe associé
     ports:
-      - "3308:3306"                         # Redirige le port 3306 du conteneur vers le port 3308 de l’hôte
+      - "3308:3306"                           # Accès depuis l'hôte → port 3308
     volumes:
-      - db_data:/var/lib/mysql              #  Volume persistant pour stocker les données de la base
+      - db_data:/var/lib/mysql                # Données persistantes
     networks:
-      - backend                             # Connecté au réseau interne "backend"
+      - backend                                # Réseau interne
 
-  #  Interface web simple pour gérer la base de données
+  # ============================================================
+  #   ADMINER (Interface web simple)
+  # ============================================================
   adminer:
-    container_name: adminer_container       #  Nom corrigé sans version dans le nom
-    image: adminer:5.0.2-standalone         # Version stable d'Adminer
+    container_name: adminer_container
+    image: adminer:4.8.1                      # Version stable
     restart: always
     ports:
-      - "9080:8080"                         # Accessible via http://localhost:9080
-    depends_on: 
-      - db                                  # ⏳ Attend que le service "db" soit prêt
-    networks:
-      - backend
-
-  #  Interface web avancée pour gérer MariaDB
-  phpmyadmin:
-    container_name: phpmyadmin_container    #  Nom corrigé
-    image: phpmyadmin/phpmyadmin
-    restart: always
-    environment:
-      PMA_HOST: db                          #  Hôte de la base de données
-      PMA_PORT: 3306                        #  Port de connexion à MariaDB
-    ports:
-      - "9090:80"                           # Accessible via http://localhost:9090
+      - "9080:8080"                           # UI : http://localhost:9080
     depends_on:
       - db
     networks:
       - backend
 
-  #  Service SMTP local pour tester l’envoi/réception d’e-mails
+  # ============================================================
+  #   PHPMYADMIN (Interface web avancée)
+  # ============================================================
+  phpmyadmin:
+    container_name: phpmyadmin_container
+    image: phpmyadmin/phpmyadmin:latest
+    restart: always
+    environment:
+      PMA_HOST: db                            # Adresse de MariaDB
+      PMA_PORT: 3306
+    ports:
+      - "9090:80"                             # UI : http://localhost:9090
+    depends_on:
+      - db
+    networks:
+      - backend
+
+  # ============================================================
+  #   SMTP4DEV (Serveur mail pour tests)
+  # ============================================================
   smtp4dev:
     container_name: smtp4dev_container
     image: rnwood/smtp4dev:v3
     restart: always
     ports:
-      - "5001:80"                           # Interface web → http://localhost:5001
-      - "2526:25"                           # Port SMTP simulé
-      - "1153:143"                          # Port IMAP simulé
-      - "1120:110"                          # Port POP3 simulé
+      - "5001:80"                             # Interface web
+      - "2526:25"                             # SMTP port
+      - "1153:143"                            # IMAP
+      - "1120:110"                            # POP3
     volumes:
-      - smtp4dev-data:/smtp4dev             #  Volume pour stocker les messages et sessions
+      - smtp4dev-data:/smtp4dev               # Emails stockés
     environment:
       - ServerOptions__Urls=http://*:80
       - ServerOptions__HostName=smtp4dev
@@ -71,11 +78,15 @@ services: # Définition des services à déployer
     networks:
       - backend
 
-# Déclaration des volumes persistants
+# ============================================================
+#   VOLUMES PERSISTANTS
+# ============================================================
 volumes:
   db_data:
-  smtp4dev-data:     # Volume pour smtp4dev
+  smtp4dev-data:
 
-#  Déclaration du réseau interne utilisé par tous les services
+# ============================================================
+#   RÉSEAU INTERNE UNIQUE
+# ============================================================
 networks:
   backend:

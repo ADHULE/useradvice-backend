@@ -47,6 +47,12 @@ spring:
 
             #  Nom du fournisseur (affiché dans ton UI)
             client-name: Google
+          provider:
+            google:
+              authorization-uri: https://accounts.google.com/o/oauth2/v2/auth
+              token-uri: https://oauth2.googleapis.com/token
+              user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo
+              user-name-attribute: sub
 
           facebook:
             client-id: facebook-client-id
@@ -102,8 +108,3 @@ logging:
   level:
     #  Logs détaillés pour comprendre OAuth2
     org.springframework.security: debug
-
-
-app:
-  secret-key: 6e2f3b5c8a7d9e1f2c4b6a8e9d1f3c5b7a9d2e4f6b8c1a3f5d7e9b1c3d5f7a96e2f3b5c8a7d9e1f2c4b6a8e9d1f3c5b7a9d2e4f6b8c1a3f5d7e9b1c3d5f7a9
-  # Clé secrète utilisée pour signer et vérifier les tokens JWT
