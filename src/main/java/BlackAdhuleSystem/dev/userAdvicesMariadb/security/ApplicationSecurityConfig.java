@@ -35,10 +35,15 @@ public class ApplicationSecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
+                // Désactiver CSRF (obligatoire pour API REST avec JWT)
                 .csrf(AbstractHttpConfigurer::disable)
-                .cors(cors -> {
-                }) // Active CORS
+
+                //  Activer CORS et utiliser la configuration définie plus bas
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+
+                // Gestion des routes publiques et privées
                 .authorizeHttpRequests(auth -> auth
+
                         // --------------------- AuthController ---------------------
                         .requestMatchers(POST, "/inscription").permitAll()
                         .requestMatchers(POST, "/activation").permitAll()
@@ -57,8 +62,10 @@ public class ApplicationSecurityConfig {
                         .requestMatchers("/oauth2/**").permitAll()
                         .requestMatchers("/login/oauth2/**").permitAll()
 
+                        // --------------------- Preflight CORS ---------------------
+                        .requestMatchers(OPTIONS, "/**").permitAll()
+
                         // --------------------- AdviceController ---------------------
-                        .requestMatchers(OPTIONS, "/**").permitAll() // pour CORS
                         .requestMatchers(GET, "/advices/me").permitAll()
                         .requestMatchers(GET, "/advices/admin").permitAll()
                         .requestMatchers(GET, "/advices/{id}").permitAll()
@@ -76,16 +83,26 @@ public class ApplicationSecurityConfig {
 
                         // --------------------- Divers ---------------------
                         .requestMatchers("/error").permitAll()
+
                         .anyRequest().authenticated()
                 )
+
+                // API REST => Stateless
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
+
+                // Pas de formulaire HTML
                 .formLogin(AbstractHttpConfigurer::disable)
                 .logout(AbstractHttpConfigurer::disable)
+
+                // Ajout du filtre JWT avant UsernamePasswordAuth
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+
                 .build();
     }
+
+    // --------------------- Provider d’authentification ---------------------
 
     @Bean
     public AuthenticationProvider authenticationProvider() {
@@ -100,18 +117,22 @@ public class ApplicationSecurityConfig {
         return config.getAuthenticationManager();
     }
 
-    // Configuration CORS globale
+    // --------------------- Configuration CORS ---------------------
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:3001")); // ton frontend
+
+        //  Autoriser ton frontend React/Vite
+        configuration.setAllowedOrigins(List.of("http://localhost:3001"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("*")); // Autorise tous les headers
-        configuration.setAllowCredentials(true);
+        configuration.setAllowedHeaders(List.of("*")); // Important pour Authorization
+        configuration.setExposedHeaders(List.of("Authorization"));
+        configuration.setAllowCredentials(true); // Permet cookies & tokens
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
+
         return source;
     }
-
 }

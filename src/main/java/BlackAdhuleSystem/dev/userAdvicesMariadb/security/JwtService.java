@@ -8,8 +8,10 @@ import BlackAdhuleSystem.dev.userAdvicesMariadb.services.implementations.UserSer
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
+import io.jsonwebtoken.io.Encoders;
 import io.jsonwebtoken.security.Keys;
 
+import jakarta.annotation.PostConstruct;
 import jakarta.transaction.Transactional;
 
 import lombok.RequiredArgsConstructor;
@@ -36,8 +38,29 @@ public class JwtService {
     private final UserServiceImp userServiceImp;
     private final JwtRepository jwtRepository;
 
-    @Value("${app.secret-key}")
+    @Value("${app.secret-key:}") // clé injectée, vide par défaut
     private String encryptionKey;
+
+    // ============================================================
+    // INITIALISATION DE LA CLE SECRETE
+    // ============================================================
+    @PostConstruct
+    private void initSecretKey() {
+        if (encryptionKey == null || encryptionKey.isBlank()) {
+            encryptionKey = generateSecretKey();
+            log.warn("Aucune clé secrète définie. Une clé aléatoire vient d’être générée : {}", encryptionKey);
+        } else {
+            log.info("Clé secrète chargée depuis la configuration.");
+        }
+    }
+
+    // ============================================================
+    // GENERATION AUTOMATIQUE DE LA CLE SECRETE
+    // ============================================================
+    private String generateSecretKey() {
+        Key key = Keys.secretKeyFor(SignatureAlgorithm.HS512);
+        return Encoders.BASE64.encode(key.getEncoded());
+    }
 
     // ============================================================
     // GENERATION DU TOKEN INITIAL
@@ -276,14 +299,12 @@ public class JwtService {
             throw new RuntimeException("Refresh token manquant !");
         }
 
-        // Rechercher le JWT associé à ce refresh token
         Jwt jwt = jwtRepository.findByRefreshTokenValue(refreshValue)
                 .orElseThrow(() -> new RuntimeException("Refresh token invalide !"));
 
         RefreshToken refreshToken = jwt.getRefreshToken();
         User user = jwt.getUser();
 
-        // Vérifier expiration du refresh token
         if (refreshToken.isExpire() || refreshToken.getExpiration().isBefore(Instant.now())) {
             refreshToken.setExpire(true);
             jwt.setExpire(true);
@@ -293,7 +314,6 @@ public class JwtService {
             throw new RuntimeException("Refresh token expiré !");
         }
 
-        // Générer un nouveau access token
         long now = System.currentTimeMillis();
         long expirationTime = now + (15 * 60 * 1000); // ✅ 15 minutes
 
