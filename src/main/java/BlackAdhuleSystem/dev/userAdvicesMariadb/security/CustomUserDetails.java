@@ -9,6 +9,10 @@ import org.springframework.security.core.userdetails.UserDetails;
 import java.util.Collection;
 import java.util.stream.Collectors;
 
+/**
+ * Implémentation personnalisée de UserDetails pour Spring Security.
+ * Permet de brancher notre entité User sur le mécanisme d'authentification.
+ */
 public class CustomUserDetails implements UserDetails {
 
     private final User user;
@@ -23,41 +27,44 @@ public class CustomUserDetails implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        // Convertit les rôles en SimpleGrantedAuthority pour Spring Security
+        // Les rôles sont déjà stockés avec le préfixe ROLE_ (ex: ROLE_ADMIN, ROLE_USER)
         return user.getRoles().stream()
-                .map(Role::getName)
-                .map(SimpleGrantedAuthority::new)
+                .map(Role::getName) // récupère "ROLE_ADMIN" ou "ROLE_USER"
+                .map(SimpleGrantedAuthority::new) // convertit en GrantedAuthority
                 .collect(Collectors.toSet());
     }
 
     @Override
     public String getPassword() {
-        return user.getPassword();
+        return user.getPassword(); // mot de passe hashé
     }
 
     @Override
     public String getUsername() {
-        return user.getEmail();
+        return user.getEmail(); // identifiant = email
     }
 
     @Override
     public boolean isAccountNonExpired() {
+        // Pas de gestion d'expiration → toujours true
         return true;
     }
 
     @Override
     public boolean isAccountNonLocked() {
-        // Retourne false si le compte est inactif → verrouillé
-        return user.isActif();
+        // Pas de gestion de verrouillage → toujours true
+        return true;
     }
 
     @Override
     public boolean isCredentialsNonExpired() {
+        // Pas de gestion d'expiration des credentials → toujours true
         return true;
     }
 
     @Override
     public boolean isEnabled() {
+        // Activation du compte → c'est ici que Spring Security vérifie
         return user.isActif();
     }
 }

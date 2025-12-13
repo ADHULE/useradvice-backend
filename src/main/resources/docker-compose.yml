@@ -1,4 +1,5 @@
-version: "3.8"  # Version de la syntaxe Docker Compose
+# Docker Compose moderne : plus besoin de "version"
+# La syntaxe est implicite avec Docker Compose v2+
 
 services:
   # ============================================================
@@ -6,29 +7,29 @@ services:
   # ============================================================
   db:
     container_name: mariadb_container
-    image: mariadb:11.4   # Version LTS stable de MariaDB
+    image: mariadb:11.8   # Dernière LTS stable (maintenue jusqu’en 2029)
     restart: always
     environment:
-      MARIADB_ROOT_PASSWORD: example          # Mot de passe root
-      MARIADB_DATABASE: useradvicesmariadb    # Base créée automatiquement
-      MARIADB_USER: app_user                  # Utilisateur de l'application
-      MARIADB_PASSWORD: app_pass              # Mot de passe associé
+      MARIADB_ROOT_PASSWORD: example
+      MARIADB_DATABASE: useradvicesmariadb
+      MARIADB_USER: app_user
+      MARIADB_PASSWORD: app_pass
     ports:
-      - "3308:3306"                           # Accès depuis l'hôte → port 3308
+      - "3308:3306"
     volumes:
-      - db_data:/var/lib/mysql                # Données persistantes
+      - db_data:/var/lib/mysql
     networks:
-      - backend                                # Réseau interne
+      - backend
 
   # ============================================================
   #   ADMINER (Interface web simple)
   # ============================================================
   adminer:
     container_name: adminer_container
-    image: adminer:4.8.1                      # Version stable
+    image: adminer:4.8.1   # Version stable
     restart: always
     ports:
-      - "9080:8080"                           # UI : http://localhost:9080
+      - "9080:8080"
     depends_on:
       - db
     networks:
@@ -39,13 +40,13 @@ services:
   # ============================================================
   phpmyadmin:
     container_name: phpmyadmin_container
-    image: phpmyadmin/phpmyadmin:latest
+    image: phpmyadmin:5.2.3-apache   # Dernière version stable
     restart: always
     environment:
-      PMA_HOST: db                            # Adresse de MariaDB
+      PMA_HOST: db
       PMA_PORT: 3306
     ports:
-      - "9090:80"                             # UI : http://localhost:9090
+      - "9090:80"
     depends_on:
       - db
     networks:
@@ -56,15 +57,15 @@ services:
   # ============================================================
   smtp4dev:
     container_name: smtp4dev_container
-    image: rnwood/smtp4dev:v3
+    image: rnwood/smtp4dev:v3   # Tag stable disponible sur Docker Hub
     restart: always
     ports:
-      - "5001:80"                             # Interface web
-      - "2526:25"                             # SMTP port
-      - "1153:143"                            # IMAP
-      - "1120:110"                            # POP3
+      - "5001:80"
+      - "2526:25"
+      - "1153:143"
+      - "1120:110"
     volumes:
-      - smtp4dev-data:/smtp4dev               # Emails stockés
+      - smtp4dev-data:/smtp4dev
     environment:
       - ServerOptions__Urls=http://*:80
       - ServerOptions__HostName=smtp4dev

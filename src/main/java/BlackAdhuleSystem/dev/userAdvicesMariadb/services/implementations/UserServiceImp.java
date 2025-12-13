@@ -2,6 +2,7 @@ package BlackAdhuleSystem.dev.userAdvicesMariadb.services.implementations;
 
 import BlackAdhuleSystem.dev.userAdvicesMariadb.dto.UserDto;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.entity.*;
+import BlackAdhuleSystem.dev.userAdvicesMariadb.exceptions.AccountNotActivatedException;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.exceptions.CodeNotFoundException;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.mapper.UserMapper;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.repository.RoleRepository;
@@ -273,7 +274,14 @@ public class UserServiceImp implements UserService, UserDetailsService {
     // ---------------------------
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        return userRepository.findByEmail(email)
+        User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("Utilisateur non trouvé : " + email));
+
+        if (!user.isActif()) {
+            throw new AccountNotActivatedException("Compte non activé");
+        }
+
+        return user;
     }
+
 }

@@ -3,6 +3,7 @@ package BlackAdhuleSystem.dev.userAdvicesMariadb.controller;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.dto.AuthentificationDto;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.dto.UserDto;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.entity.User;
+import BlackAdhuleSystem.dev.userAdvicesMariadb.exceptions.AccountNotActivatedException;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.security.JwtService;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.services.interfaces.UserService;
 import lombok.AllArgsConstructor;
@@ -59,28 +60,30 @@ public class UserController {
         userService.generateNewCode(parameter);
         return ResponseEntity.ok("Un nouveau code a été envoyé à votre email.");
     }
-
     @PostMapping("/login")
     public ResponseEntity<Map<String, Object>> connexion(@RequestBody AuthentificationDto authentificationDto,
                                                          HttpServletResponse response) {
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        authentificationDto.email(),
-                        authentificationDto.password()
-                )
-        );
+        try {
+            User user = userService.findByEmail(authentificationDto.email());
 
-        if (authentication.isAuthenticated()) {
-            // 1. Génération du Token
+            // Vérifier si le compte est actif AVANT l'authentification
+            if (!user.isActif()) {
+                throw new AccountNotActivatedException("Votre compte n'est pas activé. Vérifiez vos emails.");
+            }
+
+            // Authentification Spring Security
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            authentificationDto.email(),
+                            authentificationDto.password()
+                    )
+            );
+
+            // Génération des tokens
             Map<String, String> tokenPayload = jwtService.generateToken(authentificationDto.email());
             String accessToken = tokenPayload.get("token");
             String refreshToken = tokenPayload.get("refresh");
 
-            // 2. Récupération de l'utilisateur complet depuis votre service (DB)
-            // Remplacez userService par votre service réel
-            User user = userService.findByEmail(authentificationDto.email());
-
-            // Cookie Refresh Token
             ResponseCookie cookie = ResponseCookie.from("refreshToken", refreshToken)
                     .httpOnly(true)
                     .secure(false)
@@ -89,16 +92,21 @@ public class UserController {
                     .build();
             response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 
-            // 3. Retourner la Map avec l'objet user complet (qui contient roleDto)
             return ResponseEntity.ok(Map.of(
                     "token", accessToken,
                     "expiresAt", jwtService.getExpiration(accessToken).toString(),
-                    "user", user // C'est ici que l'objet JSON de Postman sera inséré
+                    "user", user
             ));
-        } else {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+
+        } catch (AccountNotActivatedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("message", "Compte non activé", "details", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Email ou mot de passe incorrect"));
         }
     }
+
     @PostMapping("/refresh-token")
     public ResponseEntity<Map<String, String>> refreshTokenRequest(HttpServletRequest request) {
         try {
