@@ -84,14 +84,25 @@ public class UserController {
             String accessToken = tokenPayload.get("token");
             String refreshToken = tokenPayload.get("refresh");
 
-            ResponseCookie cookie = ResponseCookie.from("refreshToken", refreshToken)
-                    .httpOnly(true)
-                    .secure(false)
-                    .path("/api/refresh-token")
-                    .maxAge(7 * 24 * 60 * 60)
+            //  Cookie pour le refresh token (7 jours)
+            ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", refreshToken)
+                    .httpOnly(true)              // non accessible en JS
+                    .secure(false)               // mettre true en prod avec HTTPS
+                    .path("/api/refresh-token")  // endpoint de refresh
+                    .maxAge(7 * 24 * 60 * 60)   // 7 jours
                     .build();
-            response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+            response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.toString());
 
+            //  Cookie pour l'access token (durée courte, ex. 15 min)
+            ResponseCookie accessCookie = ResponseCookie.from("accessToken", accessToken)
+                    .httpOnly(true)              // non accessible en JS
+                    .secure(false)               // mettre true en prod avec HTTPS
+                    .path("/")                   // accessible sur toutes les routes API
+                    .maxAge(15 * 60)             // 15 minutes
+                    .build();
+            response.addHeader(HttpHeaders.SET_COOKIE, accessCookie.toString());
+
+            // Réponse JSON (optionnel si tu veux aussi renvoyer le token côté client)
             return ResponseEntity.ok(Map.of(
                     "token", accessToken,
                     "expiresAt", jwtService.getExpiration(accessToken).toString(),

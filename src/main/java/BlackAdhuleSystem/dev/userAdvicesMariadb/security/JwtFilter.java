@@ -1,9 +1,9 @@
 package BlackAdhuleSystem.dev.userAdvicesMariadb.security;
 
-import BlackAdhuleSystem.dev.userAdvicesMariadb.entity.Jwt;
 import BlackAdhuleSystem.dev.userAdvicesMariadb.services.implementations.UserServiceImp;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +16,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
 @Component
 @RequiredArgsConstructor
 public class JwtFilter extends OncePerRequestFilter {
@@ -32,27 +33,39 @@ public class JwtFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
 
-        final String authHeader = request.getHeader("Authorization");
+        String jwtToken = null;
 
-        // Pas de header  on continue
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        // 1️Vérifier d'abord le header Authorization
+        final String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            jwtToken = authHeader.substring(7);
+        }
+
+        // 2️Si pas de header, tenter de lire le cookie "accessToken"
+        if (jwtToken == null && request.getCookies() != null) {
+            for (Cookie cookie : request.getCookies()) {
+                if ("accessToken".equals(cookie.getName())) {
+                    jwtToken = cookie.getValue();
+                    break;
+                }
+            }
+        }
+
+        // 3️si aucun token trouvé → continuer la chaîne sans authentification
+        if (jwtToken == null) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        String jwtToken = authHeader.substring(7);
         String email = null;
-
         try {
             email = jwtService.extractEmail(jwtToken);
         } catch (Exception e) {
             logger.log(Level.WARNING, "Erreur lors de l'extraction de l'email: " + e.getMessage(), e);
         }
 
-        // Si email trouvé et pas encore authentifié
+        // 4️Authentifier si email trouvé et pas encore authentifié
         if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-
-            // Vérifier validité du token (crypto + BD)
             if (jwtService.isTokenValid(jwtToken)) {
                 var userDetails = userServiceImp.loadUserByUsername(email);
 
@@ -64,8 +77,8 @@ public class JwtFilter extends OncePerRequestFilter {
                         );
 
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
                 SecurityContextHolder.getContext().setAuthentication(authToken);
+
                 logger.info("Authentification réussie pour : " + email);
             } else {
                 logger.warning("Token invalide ou désactivé pour : " + email);
