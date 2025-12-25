@@ -1,0 +1,12 @@
+# Ignorer les fichiers inutiles pour les builds
+.git
+.gitignore
+.env
+*.md
+*.log
+*.tmp
+node_modules
+__pycache__/
+*.pyc
+*.class
+.DS_Store
