@@ -28,20 +28,24 @@ import static org.springframework.http.HttpMethod.*;
 @RequiredArgsConstructor
 public class ApplicationSecurityConfig {
 
-    private final UserServiceImp userServiceImp;
-    private final PasswordEncoderConfig passwordEncoderConfig;
-    private final JwtFilter jwtFilter;
+    // Services et composants injectés
+    private final UserServiceImp userServiceImp;          // Service utilisateur (UserDetailsService)
+    private final PasswordEncoderConfig passwordEncoderConfig; // Config du PasswordEncoder
+    private final JwtFilter jwtFilter;                    // Filtre JWT personnalisé
 
+    // ==============================
+    //  Chaîne de filtres de sécurité
+    // ==============================
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
-                // Désactiver CSRF (obligatoire pour API REST avec JWT)
+                // Désactiver CSRF (utile pour API REST avec JWT)
                 .csrf(AbstractHttpConfigurer::disable)
 
-                //  Activer CORS et utiliser la configuration définie plus bas
+                // Activer CORS avec configuration personnalisée
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
-                // Gestion des routes publiques et privées
+                // Définir les règles d’autorisation
                 .authorizeHttpRequests(auth -> auth
 
                         // --------------------- AuthController ---------------------
@@ -83,52 +87,59 @@ public class ApplicationSecurityConfig {
 
                         // --------------------- Divers ---------------------
                         .requestMatchers("/error").permitAll()
+                        .requestMatchers("/actuator/**").permitAll() //  Actuator accessible sans auth
 
+                        // Toute autre requête doit être authentifiée
                         .anyRequest().authenticated()
                 )
 
-                // API REST => Stateless
+                // API REST => pas de session, tout est stateless
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
 
-                // Pas de formulaire HTML
+                // Désactiver le formulaire HTML et logout par défaut
                 .formLogin(AbstractHttpConfigurer::disable)
                 .logout(AbstractHttpConfigurer::disable)
 
-                // Ajout du filtre JWT avant UsernamePasswordAuth
+                // Ajouter le filtre JWT avant l’authentification standard
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
 
                 .build();
     }
 
-    // --------------------- Provider d’authentification ---------------------
-
+    // ==============================
+    //  Provider d’authentification
+    // ==============================
     @Bean
     public AuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
-        provider.setUserDetailsService(userServiceImp);
-        provider.setPasswordEncoder(passwordEncoderConfig.passwordEncoder());
+        provider.setUserDetailsService(userServiceImp); // Service utilisateur
+        provider.setPasswordEncoder(passwordEncoderConfig.passwordEncoder()); // Encoder des mots de passe
         return provider;
     }
 
+    // ==============================
+    //  Gestionnaire d’authentification
+    // ==============================
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
     }
 
-    // --------------------- Configuration CORS ---------------------
-
+    // ==============================
+    //  Configuration CORS
+    // ==============================
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        //  Autoriser ton frontend React/Vite
-        configuration.setAllowedOrigins(List.of("http://localhost:3001"));
+        // Autoriser ton frontend React (localhost:3000 ou 3001)
+        configuration.setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:3001"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("*")); // Important pour Authorization
-        configuration.setExposedHeaders(List.of("Authorization"));
-        configuration.setAllowCredentials(true); // Permet cookies & tokens
+        configuration.setAllowedHeaders(List.of("*")); // Autoriser tous les headers (incl. Authorization)
+        configuration.setExposedHeaders(List.of("Authorization")); // Exposer le header JWT
+        configuration.setAllowCredentials(true); // Autoriser cookies & tokens
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

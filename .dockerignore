@@ -1,7 +1,7 @@
 # Ignorer les fichiers inutiles pour les builds
 .git
-.gitignore
-.env
+../../../.gitignore
+../../../.env
 *.md
 *.log
 *.tmp

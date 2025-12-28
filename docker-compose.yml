@@ -1,11 +1,8 @@
-version: "3.9"
-
 services:
   # ============================================================
   #  SERVICE MARIADB (Base de données principale)
   # ============================================================
   db:
-    container_name: mariadb_container
     image: mariadb:11.8
     restart: always
     environment:
@@ -16,7 +13,7 @@ services:
     ports:
       - "${MARIADB_PORT}:3306"
     volumes:
-      - db_data:/var/lib/mysql   # Volume persistant pour les données
+      - db_data:/var/lib/mysql
     networks:
       - backend
 
@@ -24,7 +21,6 @@ services:
   #   ADMINER (Interface web simple)
   # ============================================================
   adminer:
-    container_name: adminer_container
     image: adminer:4.8.1
     restart: always
     ports:
@@ -38,12 +34,11 @@ services:
   #   PHPMYADMIN (Interface web avancée)
   # ============================================================
   phpmyadmin:
-    container_name: phpmyadmin_container
     image: phpmyadmin:5.2.3-apache
     restart: always
     environment:
-      PMA_HOST: ${PMA_HOST}
-      PMA_PORT: ${PMA_PORT}
+      PMA_HOST: db
+      PMA_PORT: 3306
     ports:
       - "${PHPMYADMIN_PORT}:80"
     depends_on:
@@ -55,16 +50,12 @@ services:
   #   SMTP4DEV (Serveur mail pour tests)
   # ============================================================
   smtp4dev:
-    container_name: smtp4dev_container
     image: rnwood/smtp4dev:v3
     restart: always
     ports:
       - "${SMTP4DEV_HTTP_PORT}:80"
-      - "${SMTP4DEV_SMTP_PORT}:25"
-      - "${SMTP4DEV_IMAP_PORT}:143"
-      - "${SMTP4DEV_POP3_PORT}:110"
     volumes:
-      - smtp4dev-data:/smtp4dev   # Volume persistant pour les mails
+      - smtp4dev-data:/smtp4dev
     environment:
       - ServerOptions__Urls=http://*:80
       - ServerOptions__HostName=${SMTP4DEV_HOSTNAME}
@@ -82,18 +73,14 @@ services:
   #   BACKEND SPRING BOOT (Application principale)
   # ============================================================
   backend:
-    container_name: springboot_container
     build:
-      context: src/main/java                # Racine du projet (où se trouve le Dockerfile)
-      dockerfile: Dockerfile    # Dockerfile qui copie et compile le code source
+      context: .                # Racine du projet (où se trouve le Dockerfile)
+      dockerfile: Dockerfile
     restart: always
     ports:
-      - "${SERVER_PORT}:${SERVER_PORT}"   # Expose le port configuré (ex: 9191)
-    volumes:
-      - ./src:/app/src          # Monte le code source local pour développement
-      - ./pom.xml:/app/pom.xml  # Monte le pom.xml pour rebuild rapide
+      - "${SERVER_PORT}:${SERVER_PORT}"
     depends_on:
-      - db                      # Démarre après la base de données
+      - db
     networks:
       - backend
 
